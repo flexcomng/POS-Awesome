@@ -41,20 +41,22 @@
                 <v-text-field
                   dense
                   color="primary"
-                  :label="frappe._('Mobile No')"
+                  :label="frappe._('Mobile No')+ ' *'"
                   background-color="white"
                   hide-details
                   v-model="mobile_no"
+                  required
                 ></v-text-field>
               </v-col>
               <v-col cols="6">
                 <v-text-field
                   dense
                   color="primary"
-                  :label="frappe._('Email Id')"
+                  :label="frappe._('Email Id')+ ' *'"
                   background-color="white"
                   hide-details
                   v-model="email_id"
+                  required
                 ></v-text-field>
               </v-col>
               <v-col cols="6">
@@ -275,6 +277,20 @@ export default {
       if (!this.customer_name) {
         evntBus.$emit('show_mesage', {
           text: __('Customer name is required.'),
+          color: 'error',
+        });
+        return;
+      }
+      if (!this.email_id) {
+        evntBus.$emit('show_mesage', {
+          text: __('Email is required.'),
+          color: 'error',
+        });
+        return;
+      }
+      if (!this.mobile_no) {
+        evntBus.$emit('show_mesage', {
+          text: __('Mobile number is required.'),
           color: 'error',
         });
         return;
