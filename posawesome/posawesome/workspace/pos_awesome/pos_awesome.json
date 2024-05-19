@@ -5,6 +5,7 @@
    "label": "Daily Sales Summary"
   }
  ],
+<<<<<<< Updated upstream
  "content": "[{\"id\":\"eibCuPoURz\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Profile\",\"col\":12}},{\"id\":\"txvBFtIEyH\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Buttons\",\"col\":12}},{\"id\":\"iEjyQlh2p2\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Daily Sales Summary\",\"col\":12}},{\"id\":\"nVBkn7nfDw\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"zUBobZE-iw\",\"type\":\"card\",\"data\":{\"card_name\":\"Reports\",\"col\":4}},{\"id\":\"-B_qEZqEA6\",\"type\":\"card\",\"data\":{\"card_name\":\"POS\",\"col\":4}},{\"id\":\"tsAHaUCd5l\",\"type\":\"card\",\"data\":{\"card_name\":\"Profile\",\"col\":4}},{\"id\":\"2-3HMkGou3\",\"type\":\"card\",\"data\":{\"card_name\":\"Shift\",\"col\":4}},{\"id\":\"GdPtnrazDS\",\"type\":\"card\",\"data\":{\"card_name\":\"Delivery Charges\",\"col\":4}},{\"id\":\"cABO53xhGv\",\"type\":\"card\",\"data\":{\"card_name\":\"Offers &amp; Coupons\",\"col\":4}}]",
  "creation": "2022-11-29 14:33:45.038200",
  "custom_blocks": [
@@ -15,6 +16,18 @@
   {
    "custom_block_name": "Buttons",
    "label": "Buttons"
+=======
+ "content": "[{\"id\":\"IoRQzvO2fE\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Profile Header\",\"col\":12}},{\"id\":\"upDKiy93n1\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Buttons\",\"col\":12}},{\"id\":\"B2OOpmnC9n\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Daily Sales Summary\",\"col\":12}},{\"id\":\"-B_qEZqEA6\",\"type\":\"card\",\"data\":{\"card_name\":\"POS\",\"col\":4}},{\"id\":\"tsAHaUCd5l\",\"type\":\"card\",\"data\":{\"card_name\":\"Profile\",\"col\":4}},{\"id\":\"2-3HMkGou3\",\"type\":\"card\",\"data\":{\"card_name\":\"Shift\",\"col\":4}},{\"id\":\"GdPtnrazDS\",\"type\":\"card\",\"data\":{\"card_name\":\"Delivery Charges\",\"col\":4}},{\"id\":\"cABO53xhGv\",\"type\":\"card\",\"data\":{\"card_name\":\"Offers &amp; Coupons\",\"col\":4}}]",
+ "creation": "2022-11-29 14:33:45.038200",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Buttons",
+   "label": "Buttons"
+  },
+  {
+   "custom_block_name": "Profile Header",
+   "label": "Profile Header"
+>>>>>>> Stashed changes
   }
  ],
  "docstatus": 0,
@@ -23,7 +36,7 @@
  "hide_custom": 0,
  "icon": "retail",
  "idx": 0,
- "is_hidden": 0,
+ "is_hidden": 1,
  "label": "POS Awesome",
  "links": [
   {
@@ -196,7 +209,11 @@
    "type": "Link"
   }
  ],
+<<<<<<< Updated upstream
  "modified": "2024-04-24 01:01:50.617665",
+=======
+ "modified": "2024-05-19 12:44:07.657412",
+>>>>>>> Stashed changes
  "modified_by": "Administrator",
  "module": "POSAwesome",
  "name": "POS Awesome",

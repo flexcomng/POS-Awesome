@@ -1,0 +1,46 @@
+{
+ "charts": [
+  {
+   "chart_name": "Daily Sales Summary",
+   "label": "Daily Sales Summary"
+  }
+ ],
+ "content": "[{\"id\":\"_X5U18ipTO\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Storefront Profile\",\"col\":12}},{\"id\":\"gxo6PQoShW\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Buttons\",\"col\":12}},{\"id\":\"JcKJHLBB6Q\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Daily Sales Summary\",\"col\":12}}]",
+ "creation": "2024-05-11 13:10:34.711810",
+ "custom_blocks": [
+  {
+   "custom_block_name": "Storefront Profile",
+   "label": "Storefront Profile"
+  },
+  {
+   "custom_block_name": "Buttons",
+   "label": "Buttons"
+  }
+ ],
+ "docstatus": 0,
+ "doctype": "Workspace",
+ "for_user": "",
+ "hide_custom": 0,
+ "icon": "retail",
+ "idx": 0,
+ "is_hidden": 0,
+ "label": "Store Operations",
+ "links": [],
+ "modified": "2024-05-14 10:07:16.888575",
+ "modified_by": "Administrator",
+ "module": "POSAwesome",
+ "name": "Store Operations",
+ "number_cards": [],
+ "owner": "Administrator",
+ "parent_page": "",
+ "public": 1,
+ "quick_lists": [],
+ "roles": [
+  {
+   "role": "Sales User"
+  }
+ ],
+ "sequence_id": 1.0,
+ "shortcuts": [],
+ "title": "Store Operations"
+}

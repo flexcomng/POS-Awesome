@@ -180,6 +180,7 @@ export default {
     loading: false,
     items_group: ["ALL"],
     items: [],
+    custom_style_code: '',
     search: "",
     first_search: "",
     itemsPerPage: 1000,
@@ -217,66 +218,67 @@ export default {
       evntBus.$emit("show_coupons", "true");
     },
     get_items() {
-      if (!this.pos_profile) {
-        console.error("No POS Profile");
-        return;
-      }
-      const vm = this;
-      this.loading = true;
-      let search = this.get_search(this.first_search);
-      let gr = "";
-      let sr = "";
-      if (search) {
-        sr = search;
-      }
-      if (vm.item_group != "ALL") {
-        gr = vm.item_group.toLowerCase();
-      }
-      if (
-        vm.pos_profile.posa_local_storage &&
-        localStorage.items_storage &&
-        !vm.pos_profile.pose_use_limit_search
-      ) {
-        vm.items = JSON.parse(localStorage.getItem("items_storage"));
-        evntBus.$emit("set_all_items", vm.items);
-        vm.loading = false;
-      }
-      frappe.call({
-        method: "posawesome.posawesome.api.posapp.get_items",
-        args: {
-          pos_profile: vm.pos_profile,
-          price_list: vm.customer_price_list,
-          item_group: gr,
-          search_value: sr,
-          customer: vm.customer,
-        },
-        callback: function (r) {
-          if (r.message) {
-            vm.items = r.message;
-            evntBus.$emit("set_all_items", vm.items);
-            vm.loading = false;
-            console.info("Items Loaded");
-            if (
-              vm.pos_profile.posa_local_storage &&
-              !vm.pos_profile.pose_use_limit_search
-            ) {
-              localStorage.setItem("items_storage", "");
-              try {
-                localStorage.setItem(
-                  "items_storage",
-                  JSON.stringify(r.message)
-                );
-              } catch (e) {
-                console.error(e);
-              }
-            }
-            if (vm.pos_profile.pose_use_limit_search) {
-              vm.enter_event();
+    if (!this.pos_profile) {
+      console.error("No POS Profile");
+      return;
+    }
+    const vm = this;
+    this.loading = true;
+    let search = this.get_search(this.first_search);
+    let gr = "";
+    let sr = "";
+    if (search) {
+      sr = search;
+    }
+    if (vm.item_group != "ALL") {
+      gr = vm.item_group.toLowerCase();
+    }
+    if (
+      vm.pos_profile.posa_local_storage &&
+      localStorage.items_storage &&
+      !vm.pos_profile.pose_use_limit_search
+    ) {
+      vm.items = JSON.parse(localStorage.getItem("items_storage"));
+      evntBus.$emit("set_all_items", vm.items);
+      vm.loading = false;
+    }
+    frappe.call({
+      method: "posawesome.posawesome.api.posapp.get_items",
+      args: {
+        pos_profile: vm.pos_profile,
+        price_list: vm.customer_price_list,
+        item_group: gr,
+        search_value: sr,
+        customer: vm.customer,
+        custom_style_code: vm.custom_style_code,  // Include the custom field
+      },
+      callback: function (r) {
+        if (r.message) {
+          vm.items = r.message;
+          evntBus.$emit("set_all_items", vm.items);
+          vm.loading = false;
+          console.info("Items Loaded");
+          if (
+            vm.pos_profile.posa_local_storage &&
+            !vm.pos_profile.pose_use_limit_search
+          ) {
+            localStorage.setItem("items_storage", "");
+            try {
+              localStorage.setItem(
+                "items_storage",
+                JSON.stringify(r.message)
+              );
+            } catch (e) {
+              console.error(e);
             }
           }
-        },
-      });
-    },
+          if (vm.pos_profile.pose_use_limit_search) {
+            vm.enter_event();
+          }
+        }
+      },
+    });
+  },
     get_items_groups() {
       if (!this.pos_profile) {
         console.log("No POS Profile");
@@ -557,65 +559,62 @@ export default {
                 break;
               }
             }
+            if (!found && item.item_code.toLowerCase().includes(this.search.toLowerCase())) {
+              found = true;
+            }
+            if (!found && item.custom_style_code && item.custom_style_code.toLowerCase().includes(this.search.toLowerCase())) {
+              found = true;
+            }
             return found;
           });
           if (filtred_list.length == 0) {
-            filtred_list = filtred_group_list.filter((item) =>
-              item.item_code.toLowerCase().includes(this.search.toLowerCase())
-            );
-            if (filtred_list.length == 0) {
-              const search_combinations = this.generateWordCombinations(
-                this.search
-              );
-              filtred_list = filtred_group_list.filter((item) => {
-                let found = false;
-                for (let element of search_combinations) {
-                  element = element.toLowerCase().trim();
-                  let element_regex = new RegExp(
-                    `.*${element.split("").join(".*")}.*`
-                  );
-                  if (element_regex.test(item.item_name.toLowerCase())) {
-                    found = true;
-                    break;
-                  }
+            filtred_list = filtred_group_list.filter((item) => {
+              const search_combinations = this.generateWordCombinations(this.search);
+              let found = false;
+              for (let element of search_combinations) {
+                element = element.toLowerCase().trim();
+                let element_regex = new RegExp(`.*${element.split("").join(".*")}.*`);
+                if (element_regex.test(item.item_name.toLowerCase())) {
+                  found = true;
+                  break;
                 }
-                return found;
-              });
-            }
-            if (
-              filtred_list.length == 0 &&
-              this.pos_profile.posa_search_serial_no
-            ) {
-              filtred_list = filtred_group_list.filter((item) => {
-                let found = false;
-                for (let element of item.serial_no_data) {
-                  if (element.serial_no == this.search) {
-                    found = true;
-                    this.flags.serial_no = null;
-                    this.flags.serial_no = this.search;
-                    break;
-                  }
+              }
+              return found;
+            });
+          }
+          if (
+            filtred_list.length == 0 &&
+            this.pos_profile.posa_search_serial_no
+          ) {
+            filtred_list = filtred_group_list.filter((item) => {
+              let found = false;
+              for (let element of item.serial_no_data) {
+                if (element.serial_no == this.search) {
+                  found = true;
+                  this.flags.serial_no = null;
+                  this.flags.serial_no = this.search;
+                  break;
                 }
-                return found;
-              });
-            }
-            if (
-              filtred_list.length == 0 &&
-              this.pos_profile.posa_search_batch_no
-            ) {
-              filtred_list = filtred_group_list.filter((item) => {
-                let found = false;
-                for (let element of item.batch_no_data) {
-                  if (element.batch_no == this.search) {
-                    found = true;
-                    this.flags.batch_no = null;
-                    this.flags.batch_no = this.search;
-                    break;
-                  }
+              }
+              return found;
+            });
+          }
+          if (
+            filtred_list.length == 0 &&
+            this.pos_profile.posa_search_batch_no
+          ) {
+            filtred_list = filtred_group_list.filter((item) => {
+              let found = false;
+              for (let element of item.batch_no_data) {
+                if (element.batch_no == this.search) {
+                  found = true;
+                  this.flags.batch_no = null;
+                  this.flags.batch_no = this.search;
+                  break;
                 }
-                return found;
-              });
-            }
+              }
+              return found;
+            });
           }
         }
         if (
