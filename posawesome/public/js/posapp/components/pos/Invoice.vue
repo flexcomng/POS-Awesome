@@ -258,7 +258,8 @@
                     :items="markdownOptions"
                     :label="frappe._('Markdown Reason')"
                     v-model="item.selectedMarkdownOption"
-                    :rules="[v => !!v || 'Markdown Reason is required']"
+                    :error="!item.selectedMarkdownOption && (item.discount_percentage > 0 || item.discount_amount > 0)"
+                    :error-messages="!item.selectedMarkdownOption ? 'Markdown Reason is required' : ''"
                   ></v-select>
                 </v-col>
                 <!-- End Markdown Options Dropdown -->
@@ -937,7 +938,7 @@ export default {
           posa_notes: item.posa_notes,
           posa_delivery_date: item.posa_delivery_date,
           price_list_rate: item.price_list_rate,
-          markdown_option: item.selectedMarkdownOption || "",  // Add this line
+          markdown_option: item.selectedMarkdownOption || "", 
         };
         items_list.push(new_item);
       });
@@ -1056,6 +1057,15 @@ export default {
           color: "error",
         });
         return;
+      }
+      for (let item of this.items) {
+        if ((item.discount_percentage > 0 || item.discount_amount > 0) && !item.selectedMarkdownOption) {
+          evntBus.$emit("show_mesage", {
+            text: `No markdown reason was selected for item ${item.item_code}!`,
+            color: "error",
+          });
+          return;
+        }
       }
       if (!this.validate()) {
         return;
