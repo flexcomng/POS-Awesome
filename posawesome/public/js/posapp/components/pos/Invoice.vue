@@ -407,6 +407,28 @@
         </v-col>
       </v-row>
     </v-card>
+    <v-dialog v-model="showAuthDialog" max-width="400">
+      <v-card>
+        <v-card-title class="headline">{{ __('Markdown Authorization') }}</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="authData.email"
+            label="Username/Email"
+            required
+          ></v-text-field>
+          <v-text-field
+            v-model="authData.password"
+            label="Password"
+            type="password"
+            required
+          ></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="primary" @click="authorizeMarkdown">{{ __('Authorize') }}</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -463,7 +485,13 @@ export default {
         { text: __("Amount"), value: "amount", align: "center" },
         { text: __("is Offer"), value: "posa_is_offer", align: "center" },
       ],
-    };
+      showAuthDialog: false,
+      authData: {
+        email: '',
+        password: ''
+      },
+      markdownAuthorizedBy: ''
+    }
   },
 
   components: {
@@ -530,6 +558,39 @@ export default {
         }
       });
     },
+    showMarkdownAuthorizationDialog() {
+      this.showAuthDialog = true;
+    },
+    authorizeMarkdown() {
+      frappe.call({
+        method: "posawesome.posawesome.api.api.login",
+        args: {
+          usr: this.authData.email,
+          pwd: this.authData.password
+        },
+        callback: (response) => {
+          if (response.message.status === "success") {
+            const userData = response.message.user_data;
+            const authorized_roles = ["Sales Manager"];
+            const hasRole = userData.roles.some(role => authorized_roles.includes(role.role));
+
+            if (hasRole) {
+              this.showAuthDialog = false;
+
+              this.markdownAuthorizedBy = userData.full_name; 
+              frappe.msgprint('Authorization Confirmed!')
+            } else {
+              frappe.msgprint(__('You do not have the required role.'));
+            }
+          } else {
+            frappe.msgprint(__('Invalid credentials.'));
+          }
+        }
+      });
+    },
+   
+
+
     add_one(item) {
       item.qty++;
       if (item.qty == 0) {
@@ -741,6 +802,8 @@ export default {
             this.set_batch_qty(item, item.batch_no);
           }
           item.markdown_option = item.selectedMarkdownOption || "";
+          item.markdown_authorized_by = this.markdownAuthorizedBy || "";
+
         });
         this.customer = data.customer;
         this.posting_date = data.posting_date || frappe.datetime.nowdate();
@@ -939,6 +1002,7 @@ export default {
           posa_delivery_date: item.posa_delivery_date,
           price_list_rate: item.price_list_rate,
           markdown_option: item.selectedMarkdownOption || "", 
+          markdown_authorized_by: this.markdownAuthorizedBy || "", 
         };
         items_list.push(new_item);
       });
@@ -991,6 +1055,7 @@ export default {
 
     update_invoice(doc) {
       const vm = this;
+      console.log('Data Dump', doc)
       frappe.call({
         method: "posawesome.posawesome.api.posapp.update_invoice",
         args: {
@@ -1025,23 +1090,24 @@ export default {
 
     process_invoice() {
       const doc = this.get_invoice_doc();
-      if (doc.name) {
-        return this.update_invoice(doc);
-      } else {
-        return this.update_invoice(doc);
-      }
-    },
+        if (doc.name) {
+          return this.update_invoice(doc);
+        } else {
+          return this.update_invoice(doc);
+        }
+      },
 
-    async process_invoice_from_order() {
-      const doc = await this.get_invoice_from_order_doc();
-      var up_invoice;
-      if (doc.name) {
-        up_invoice = await this.update_invoice_from_order(doc);
-        return up_invoice;
-      } else {
-        return this.update_invoice_from_order(doc);
-      }
-    },
+      async process_invoice_from_order() {
+        const doc = await this.get_invoice_from_order_doc();
+        var up_invoice;
+        if (doc.name) {
+          up_invoice = await this.update_invoice_from_order(doc);
+          return up_invoice;
+        } else {
+          return this.update_invoice_from_order(doc);
+        }
+      },
+
 
     async show_payment() {
       if (!this.customer) {
@@ -1053,7 +1119,7 @@ export default {
       }
       if (!this.items.length) {
         evntBus.$emit("show_mesage", {
-          text: __(`There is no Items !`),
+          text: __(`There are no Items !`),
           color: "error",
         });
         return;
@@ -1067,6 +1133,26 @@ export default {
           return;
         }
       }
+
+      this.showMarkdownAuthorizationDialog();
+
+      try {
+        const authorized = await this.waitForAuthorization();
+        if (!authorized) {
+          evntBus.$emit("show_mesage", {
+            text: __(`Authorization failed!`),
+            color: "error",
+          });
+          return;
+        }
+      } catch (error) {
+        evntBus.$emit("show_mesage", {
+          text: __(`Authorization error: ${error.message}`),
+          color: "error",
+        });
+        return;
+      }
+
       if (!this.validate()) {
         return;
       }
@@ -1078,8 +1164,7 @@ export default {
         const sales_invoice_item = this.invoice_doc.items[0];
         var sales_invoice_item_doc = {};
         frappe.call({
-          method:
-            "posawesome.posawesome.api.posapp.get_sales_invoice_child_table",
+          method: "posawesome.posawesome.api.posapp.get_sales_invoice_child_table",
           args: {
             sales_invoice: this.invoice_doc.name,
             sales_invoice_item: sales_invoice_item.name,
@@ -1105,6 +1190,23 @@ export default {
         const invoice_doc = this.process_invoice();
         evntBus.$emit("send_invoice_doc_payment", invoice_doc);
       }
+    },
+
+    async waitForAuthorization() {
+       return new Promise((resolve, reject) => {
+         const checkAuthorization = () => {
+         if (this.showAuthDialog === false) {
+             if (this.markdownAuthorizedBy) {
+               resolve(true);
+             } else {
+               reject(new Error("Authorization failed"));
+             }
+          } else {
+           setTimeout(checkAuthorization, 100); 
+         }
+       };
+         checkAuthorization();
+      });
     },
 
     validate() {
