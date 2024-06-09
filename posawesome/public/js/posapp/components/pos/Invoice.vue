@@ -250,7 +250,8 @@
                   <v-text-field dense outlined color="primary" :label="frappe._('Stock UOM')" background-color="white" hide-details v-model="item.stock_uom" disabled></v-text-field>
                 </v-col>
                 <!-- Add Markdown Options Dropdown Here -->
-                <v-col cols="4" v-if="item.discount_percentage > 0 || item.discount_amount > 0">
+                <!-- <v-col cols="4" v-if="item.discount_percentage > 0 || item.discount_amount > 0"> -->
+                  <v-col cols="4" v-if="shouldShowMarkdownOptions(item)">
                   <v-select
                     dense
                     outlined
@@ -258,7 +259,7 @@
                     :items="markdownOptions"
                     :label="frappe._('Markdown Reason')"
                     v-model="item.selectedMarkdownOption"
-                    :error="!item.selectedMarkdownOption && (item.discount_percentage > 0 || item.discount_amount > 0)"
+                    :error="!item.selectedMarkdownOption && ((item.discount_percentage > 0 || item.discount_amount > 0))"
                     :error-messages="!item.selectedMarkdownOption ? 'Markdown Reason is required' : ''"
                   ></v-select>
                 </v-col>
@@ -407,28 +408,28 @@
         </v-col>
       </v-row>
     </v-card>
-    <v-dialog v-model="showAuthDialog" max-width="400">
-      <v-card>
-        <v-card-title class="headline">{{ __('Markdown Authorization') }}</v-card-title>
-        <v-card-text>
-          <v-text-field
-            v-model="authData.email"
-            label="Username/Email"
-            required
-          ></v-text-field>
-          <v-text-field
-            v-model="authData.password"
-            label="Password"
-            type="password"
-            required
-          ></v-text-field>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn color="primary" @click="authorizeMarkdown">{{ __('Authorize') }}</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <v-dialog v-model="showAuthDialog" max-width="400">
+        <v-card>
+          <v-card-title class="headline">{{ __('Markdown Authorization') }}</v-card-title>
+          <v-card-text>
+            <v-text-field
+              v-model="authData.email"
+              label="Username/Email"
+              required
+            ></v-text-field>
+            <v-text-field
+              v-model="authData.password"
+              label="Password"
+              type="password"
+              required
+            ></v-text-field>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn color="primary" @click="$root.$emit('authorize-markdown')">{{ __('Authorize') }}</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
   </div>
 </template>
 
@@ -534,6 +535,11 @@ export default {
   },
 
   methods: {
+    shouldShowMarkdownOptions(item) {
+      let discountPercentage = parseFloat((item.discount_percentage || '0').replace(/,/g, ''));
+      let discountAmount = parseFloat((item.discount_amount || '0').replace(/,/g, ''));
+      return discountPercentage > 0 || discountAmount > 0;
+    },
     remove_item(item) {
       const index = this.items.findIndex(
         (el) => el.posa_row_id == item.posa_row_id
@@ -561,35 +567,53 @@ export default {
     showMarkdownAuthorizationDialog() {
       this.showAuthDialog = true;
     },
+   
     authorizeMarkdown() {
-      frappe.call({
-        method: "posawesome.posawesome.api.api.login",
-        args: {
-          usr: this.authData.email,
-          pwd: this.authData.password
-        },
-        callback: (response) => {
-          if (response.message.status === "success") {
-            const userData = response.message.user_data;
-            const authorized_roles = ["Sales Manager"];
-            const hasRole = userData.roles.some(role => authorized_roles.includes(role.role));
+      return new Promise((resolve, reject) => {
+        // Show the authorization dialog
+        this.showAuthDialog = true;
 
-            if (hasRole) {
-              this.showAuthDialog = false;
+        const handleLogin = () => {
+          frappe.call({
+            method: "posawesome.posawesome.api.api.login",
+            args: {
+              usr: this.authData.email,
+              pwd: this.authData.password
+            },
+            callback: (response) => {
+              if (response.message.status === "success") {
+                const userData = response.message.user_data;
+                const authorized_roles = ["Sales Manager"];
+                const hasRole = userData.roles.some(role => authorized_roles.includes(role.role));
 
-              this.markdownAuthorizedBy = userData.full_name; 
-              frappe.msgprint('Authorization Confirmed!')
-            } else {
-              frappe.msgprint(__('You do not have the required role.'));
+                if (hasRole) {
+                  this.markdownAuthorizedBy = userData.full_name;
+                  this.showAuthDialog = false; 
+                  this.authData.email = '';
+                  this.authData.password = '';
+                  frappe.msgprint('Authorization Confirmed!');
+                  resolve(true);
+                } else {
+                  frappe.msgprint(__('You do not have the required authorization role.'));
+                  this.authData.email = '';
+                  this.authData.password = '';
+                  reject(new Error('Not authorized'));
+                  this.showAuthDialog = false; 
+                }
+              } else {
+                frappe.msgprint(__('Invalid credentials.'));
+                this.authData.email = '';
+                this.authData.password = '';
+                reject(new Error('Invalid credentials'));
+                this.showAuthDialog = false; 
+              }
             }
-          } else {
-            frappe.msgprint(__('Invalid credentials.'));
-          }
-        }
+          });
+        };
+
+        this.$root.$once('authorize-markdown', handleLogin);
       });
     },
-   
-
 
     add_one(item) {
       item.qty++;
@@ -1055,7 +1079,6 @@ export default {
 
     update_invoice(doc) {
       const vm = this;
-      console.log('Data Dump', doc)
       frappe.call({
         method: "posawesome.posawesome.api.posapp.update_invoice",
         args: {
@@ -1108,22 +1131,22 @@ export default {
         }
       },
 
-
     async show_payment() {
       if (!this.customer) {
         evntBus.$emit("show_mesage", {
-          text: __(`There is no Customer !`),
+          text: __(`There is no Customer!`),
           color: "error",
         });
         return;
       }
       if (!this.items.length) {
         evntBus.$emit("show_mesage", {
-          text: __(`There are no Items !`),
+          text: __(`There are no Items!`),
           color: "error",
         });
         return;
       }
+      let needsAuthorization = false;
       for (let item of this.items) {
         if ((item.discount_percentage > 0 || item.discount_amount > 0) && !item.selectedMarkdownOption) {
           evntBus.$emit("show_mesage", {
@@ -1132,25 +1155,28 @@ export default {
           });
           return;
         }
+        if (item.discount_percentage > 0 || item.discount_amount > 0) {
+          needsAuthorization = true;
+        }
       }
 
-      this.showMarkdownAuthorizationDialog();
-
-      try {
-        const authorized = await this.waitForAuthorization();
-        if (!authorized) {
+      if (needsAuthorization) {
+        try {
+          const authorized = await this.authorizeMarkdown();
+          if (!authorized) {
+            evntBus.$emit("show_mesage", {
+              text: __(`Authorization failed!`),
+              color: "error",
+            });
+            return;
+          }
+        } catch (error) {
           evntBus.$emit("show_mesage", {
-            text: __(`Authorization failed!`),
+            text: __(`Authorization error: ${error.message}`),
             color: "error",
           });
           return;
         }
-      } catch (error) {
-        evntBus.$emit("show_mesage", {
-          text: __(`Authorization error: ${error.message}`),
-          color: "error",
-        });
-        return;
       }
 
       if (!this.validate()) {
@@ -1192,22 +1218,6 @@ export default {
       }
     },
 
-    async waitForAuthorization() {
-       return new Promise((resolve, reject) => {
-         const checkAuthorization = () => {
-         if (this.showAuthDialog === false) {
-             if (this.markdownAuthorizedBy) {
-               resolve(true);
-             } else {
-               reject(new Error("Authorization failed"));
-             }
-          } else {
-           setTimeout(checkAuthorization, 100); 
-         }
-       };
-         checkAuthorization();
-      });
-    },
 
     validate() {
       let value = true;
