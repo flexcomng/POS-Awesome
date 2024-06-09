@@ -412,37 +412,41 @@ def get_customer_group_condition(pos_profile):
 
 
 @frappe.whitelist()
-def get_customer_names(pos_profile):
+def get_customer_names(pos_profile, limit=100, search=None):
     _pos_profile = json.loads(pos_profile)
     ttl = _pos_profile.get("posa_server_cache_duration")
     if ttl:
         ttl = int(ttl) * 60
 
     @redis_cache(ttl=ttl or 1800)
-    def __get_customer_names(pos_profile):
-        return _get_customer_names(pos_profile)
+    def __get_customer_names(pos_profile, limit, search):
+        return _get_customer_names(pos_profile, limit, search)
 
-    def _get_customer_names(pos_profile):
+    def _get_customer_names(pos_profile, limit, search):
         pos_profile = json.loads(pos_profile)
-        condition = ""
-        condition += get_customer_group_condition(pos_profile)
-        customers = frappe.db.sql(
-            """
+        condition = get_customer_group_condition(pos_profile)
+        values = []
+        if search:
+            condition += " AND (customer_name LIKE %s OR tax_id LIKE %s OR email_id LIKE %s OR mobile_no LIKE %s)"
+            search_pattern = f"%{search}%"
+            values.extend([search_pattern] * 4)
+
+        query = f"""
             SELECT name, mobile_no, email_id, tax_id, customer_name, primary_address
             FROM `tabCustomer`
-            WHERE {0}
-            ORDER by name
-            """.format(
-                condition
-            ),
-            as_dict=1,
-        )
+            WHERE {condition}
+            ORDER BY name
+            LIMIT {int(limit)}
+        """
+
+        customers = frappe.db.sql(query, values, as_dict=1)
         return customers
 
     if _pos_profile.get("posa_use_server_cache"):
-        return __get_customer_names(pos_profile)
+        return __get_customer_names(pos_profile, limit, search)
     else:
-        return _get_customer_names(pos_profile)
+        return _get_customer_names(pos_profile, limit, search)
+
 
 
 @frappe.whitelist()

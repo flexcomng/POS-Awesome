@@ -12,17 +12,19 @@
       item-text="customer_name"
       item-value="name"
       background-color="white"
-      :no-data-text="__('Customer not found')"
+      :no-data-text="__('Please enter at least 3 characters')"
       hide-details
-      :filter="customFilter"
-      :disabled="readonly"
+      :filter="() => true"
+      :search-input.sync="searchQuery"
+      :loading="loading"
       append-icon="mdi-plus"
       @click:append="new_customer"
       prepend-inner-icon="mdi-account-edit"
       @click:prepend-inner="edit_customer"
+      @focus="loadLocalStorageCustomers"
     >
       <template v-slot:item="data">
-        <template>
+        <v-list-item>
           <v-list-item-content>
             <v-list-item-title
               class="primary--text subtitle-1"
@@ -49,7 +51,7 @@
               v-html="`Primary Address: ${data.item.primary_address}`"
             ></v-list-item-subtitle>
           </v-list-item-content>
-        </template>
+        </v-list-item>
       </template>
     </v-autocomplete>
     <div class="mb-8">
@@ -61,6 +63,7 @@
 <script>
 import { evntBus } from '../../bus';
 import UpdateCustomer from './UpdateCustomer.vue';
+
 export default {
   data: () => ({
     pos_profile: '',
@@ -68,6 +71,8 @@ export default {
     customer: '',
     readonly: false,
     customer_info: {},
+    searchQuery: '',
+    loading: false,
   }),
 
   components: {
@@ -75,63 +80,75 @@ export default {
   },
 
   methods: {
-    get_customer_names() {
-      const vm = this;
-      if (this.customers.length > 0) {
+    async get_customer_names(searchQuery = '', limit = 100) {
+      if (!this.pos_profile || !this.pos_profile.pos_profile) {
+        console.error("pos_profile is not set");
         return;
       }
-      if (vm.pos_profile.posa_local_storage && localStorage.customer_storage) {
-        vm.customers = JSON.parse(localStorage.getItem('customer_storage'));
-      }
-      frappe.call({
-        method: 'posawesome.posawesome.api.posapp.get_customer_names',
-        args: {
-          pos_profile: this.pos_profile.pos_profile,
-        },
-        callback: function (r) {
-          if (r.message) {
-            vm.customers = r.message;
-            console.info('loadCustomers');
-            if (vm.pos_profile.posa_local_storage) {
-              localStorage.setItem('customer_storage', '');
-              localStorage.setItem(
-                'customer_storage',
-                JSON.stringify(r.message)
-              );
-            }
+      this.loading = true;
+
+      try {
+        const response = await frappe.call({
+          method: 'posawesome.posawesome.api.posapp.get_customer_names',
+          args: {
+            pos_profile: JSON.stringify(this.pos_profile),
+            limit,
+            search: searchQuery,
+          },
+        });
+
+        if (response.message) {
+          if (searchQuery.length >= 3) {
+            this.customers = response.message;
           }
-        },
-      });
+        }
+      } catch (error) {
+        console.error("Error fetching customer names:", error);
+      } finally {
+        this.loading = false;
+      }
     },
+
+    loadLocalStorageCustomers() {
+      this.customers = JSON.parse(localStorage.getItem('customer_storage')) || [];
+    },
+
+    searchCustomers(query) {
+      this.searchQuery = query;
+      const localCustomers = JSON.parse(localStorage.getItem('customer_storage')) || [];
+      if (query.length < 3) {
+        this.customers = localCustomers;
+      } else {
+        const filteredCustomers = localCustomers.filter(customer =>
+          customer.customer_name.toLowerCase().includes(query.toLowerCase()) ||
+          (customer.tax_id && customer.tax_id.toLowerCase().includes(query.toLowerCase())) ||
+          (customer.email_id && customer.email_id.toLowerCase().includes(query.toLowerCase())) ||
+          (customer.mobile_no && customer.mobile_no.toLowerCase().includes(query.toLowerCase()))
+        );
+
+        this.customers = filteredCustomers;
+        this.get_customer_names(query);
+      }
+    },
+
+    onFocus() {
+      this.loadLocalStorageCustomers();
+    },
+
     new_customer() {
       evntBus.$emit('open_update_customer', null);
     },
+
     edit_customer() {
       evntBus.$emit('open_update_customer', this.customer_info);
     },
-    customFilter(item, queryText, itemText) {
-      const textOne = item.customer_name
-        ? item.customer_name.toLowerCase()
-        : '';
-      const textTwo = item.tax_id ? item.tax_id.toLowerCase() : '';
-      const textThree = item.email_id ? item.email_id.toLowerCase() : '';
-      const textFour = item.mobile_no ? item.mobile_no.toLowerCase() : '';
-      const textFifth = item.name.toLowerCase();
-      const searchText = queryText.toLowerCase();
-
-      return (
-        textOne.indexOf(searchText) > -1 ||
-        textTwo.indexOf(searchText) > -1 ||
-        textThree.indexOf(searchText) > -1 ||
-        textFour.indexOf(searchText) > -1 ||
-        textFifth.indexOf(searchText) > -1
-      );
-    },
   },
 
-  computed: {},
+  created() {
+    this.$nextTick(() => {
+      this.get_customer_names();
+    });
 
-  created: function () {
     this.$nextTick(function () {
       evntBus.$on('register_pos_profile', (pos_profile) => {
         this.pos_profile = pos_profile;
@@ -160,8 +177,8 @@ export default {
   },
 
   watch: {
-    customer() {
-      evntBus.$emit('update_customer', this.customer);
+    searchQuery(newQuery) {
+      this.searchCustomers(newQuery);
     },
   },
 };
