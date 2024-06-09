@@ -536,10 +536,15 @@ export default {
 
   methods: {
     shouldShowMarkdownOptions(item) {
-      let discountPercentage = parseFloat((item.discount_percentage || '0').replace(/,/g, ''));
-      let discountAmount = parseFloat((item.discount_amount || '0').replace(/,/g, ''));
+      let discountPercentage = parseFloat(String(item.discount_percentage || '0').replace(/,/g, ''));
+      let discountAmount = parseFloat(String(item.discount_amount || '0').replace(/,/g, ''));
+      
+      if (isNaN(discountPercentage)) discountPercentage = 0;
+      if (isNaN(discountAmount)) discountAmount = 0;
+      
       return discountPercentage > 0 || discountAmount > 0;
     },
+
     remove_item(item) {
       const index = this.items.findIndex(
         (el) => el.posa_row_id == item.posa_row_id
@@ -570,7 +575,6 @@ export default {
    
     authorizeMarkdown() {
       return new Promise((resolve, reject) => {
-        // Show the authorization dialog
         this.showAuthDialog = true;
 
         const handleLogin = () => {
@@ -1148,14 +1152,14 @@ export default {
       }
       let needsAuthorization = false;
       for (let item of this.items) {
-        if ((item.discount_percentage > 0 || item.discount_amount > 0) && !item.selectedMarkdownOption) {
+        if (this.shouldShowMarkdownOptions(item) && !item.selectedMarkdownOption) {
           evntBus.$emit("show_mesage", {
             text: `No markdown reason was selected for item ${item.item_code}!`,
             color: "error",
           });
           return;
         }
-        if (item.discount_percentage > 0 || item.discount_amount > 0) {
+        if (this.shouldShowMarkdownOptions(item)) {
           needsAuthorization = true;
         }
       }
