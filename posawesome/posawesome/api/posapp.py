@@ -428,7 +428,7 @@ def get_customer_names(pos_profile):
         condition += get_customer_group_condition(pos_profile)
         customers = frappe.db.sql(
             """
-            SELECT name, mobile_no, email_id, tax_id, customer_name, primary_address
+            SELECT name, customer_name
             FROM `tabCustomer`
             WHERE {0}
             ORDER by name
@@ -443,6 +443,53 @@ def get_customer_names(pos_profile):
         return __get_customer_names(pos_profile)
     else:
         return _get_customer_names(pos_profile)
+
+
+@frappe.whitelist()
+def get_customer_details(customer_id):
+    customer = frappe.db.sql(
+        """
+        SELECT c.name, c.mobile_no, c.email_id, c.tax_id, c.customer_name, 
+               c.customer_group, c.territory, c.primary_address, 
+               c.loyalty_program, SUM(lp.loyalty_points) as loyalty_points
+        FROM `tabCustomer` c
+        LEFT JOIN `tabLoyalty Point Entry` lp ON c.name = lp.customer
+        WHERE c.name = %s
+        GROUP BY c.name
+        """,
+        customer_id,
+        as_dict=1,
+    )
+    return customer[0] if customer else {}
+
+@frappe.whitelist()
+def search_customers(query, pos_profile):
+    pos_profile = json.loads(pos_profile)
+    condition = ""
+    if query:
+        condition = """
+            (c.customer_name LIKE %s OR
+            c.email_id LIKE %s OR
+            c.mobile_no LIKE %s)
+        """
+        query = "%" + query + "%"
+        customers = frappe.db.sql(
+            """
+            SELECT c.name, c.mobile_no, c.email_id, c.territory, c.customer_group, 
+                   c.tax_id, c.customer_name, c.primary_address, c.loyalty_program, 
+                   SUM(lp.loyalty_points) as loyalty_points
+            FROM `tabCustomer` c
+            LEFT JOIN `tabLoyalty Point Entry` lp ON c.name = lp.customer
+            WHERE {0}
+            GROUP BY c.name
+            """.format(condition),
+            (query, query, query),
+            as_dict=1,
+        )
+    else:
+        customers = []
+    return customers
+
 
 
 @frappe.whitelist()
