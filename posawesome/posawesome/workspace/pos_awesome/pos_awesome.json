@@ -23,7 +23,7 @@
  "hide_custom": 0,
  "icon": "retail",
  "idx": 0,
- "is_hidden": 0,
+ "is_hidden": 1,
  "label": "POS Awesome",
  "links": [
   {

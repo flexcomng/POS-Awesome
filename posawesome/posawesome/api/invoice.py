@@ -32,6 +32,11 @@ def before_cancel(doc, method):
     update_coupon(doc, "cancelled")
 
 
+@frappe.whitelist()
+def get_markdown_options():
+    options = frappe.get_all('Markdown Options', fields=['name'])
+    return [option['name'] for option in options]
+
 def add_loyalty_point(invoice_doc):
     for offer in invoice_doc.posa_offers:
         if offer.offer == "Loyalty Point":
