@@ -218,67 +218,67 @@ export default {
       evntBus.$emit("show_coupons", "true");
     },
     get_items() {
-    if (!this.pos_profile) {
-      console.error("No POS Profile");
-      return;
-    }
-    const vm = this;
-    this.loading = true;
-    let search = this.get_search(this.first_search);
-    let gr = "";
-    let sr = "";
-    if (search) {
-      sr = search;
-    }
-    if (vm.item_group != "ALL") {
-      gr = vm.item_group.toLowerCase();
-    }
-    if (
-      vm.pos_profile.posa_local_storage &&
-      localStorage.items_storage &&
-      !vm.pos_profile.pose_use_limit_search
-    ) {
-      vm.items = JSON.parse(localStorage.getItem("items_storage"));
-      evntBus.$emit("set_all_items", vm.items);
-      vm.loading = false;
-    }
-    frappe.call({
-      method: "posawesome.posawesome.api.posapp.get_items",
-      args: {
-        pos_profile: vm.pos_profile,
-        price_list: vm.customer_price_list,
-        item_group: gr,
-        search_value: sr,
-        customer: vm.customer,
-        custom_style_code: vm.custom_style_code,  // Include the custom field
-      },
-      callback: function (r) {
-        if (r.message) {
-          vm.items = r.message;
-          evntBus.$emit("set_all_items", vm.items);
-          vm.loading = false;
-          console.info("Items Loaded");
-          if (
-            vm.pos_profile.posa_local_storage &&
-            !vm.pos_profile.pose_use_limit_search
-          ) {
-            localStorage.setItem("items_storage", "");
-            try {
-              localStorage.setItem(
-                "items_storage",
-                JSON.stringify(r.message)
-              );
-            } catch (e) {
-              console.error(e);
+      if (!this.pos_profile) {
+        console.error("No POS Profile");
+        return;
+      }
+      const vm = this;
+      this.loading = true;
+      let search = this.get_search(this.first_search);
+      let gr = "";
+      let sr = "";
+      if (search) {
+        sr = search;
+      }
+      if (vm.item_group != "ALL") {
+        gr = vm.item_group.toLowerCase();
+      }
+      if (
+        vm.pos_profile.posa_local_storage &&
+        localStorage.items_storage &&
+        !vm.pos_profile.pose_use_limit_search
+      ) {
+        vm.items = JSON.parse(localStorage.getItem("items_storage"));
+        evntBus.$emit("set_all_items", vm.items);
+        vm.loading = false;
+      }
+      frappe.call({
+        method: "posawesome.posawesome.api.posapp.get_items",
+        args: {
+          pos_profile: vm.pos_profile,
+          price_list: vm.customer_price_list,
+          item_group: gr,
+          search_value: sr,
+          customer: vm.customer,
+          custom_style_code: vm.custom_style_code,  // Include the custom field
+        },
+        callback: function (r) {
+          if (r.message) {
+            vm.items = r.message;
+            evntBus.$emit("set_all_items", vm.items);
+            vm.loading = false;
+            console.info("Items Loaded");
+            if (
+              vm.pos_profile.posa_local_storage &&
+              !vm.pos_profile.pose_use_limit_search
+            ) {
+              localStorage.setItem("items_storage", "");
+              try {
+                localStorage.setItem(
+                  "items_storage",
+                  JSON.stringify(r.message)
+                );
+              } catch (e) {
+                console.error(e);
+              }
+            }
+            if (vm.pos_profile.pose_use_limit_search) {
+              vm.enter_event();
             }
           }
-          if (vm.pos_profile.pose_use_limit_search) {
-            vm.enter_event();
-          }
-        }
-      },
-    });
-  },
+        },
+      });
+    },
     get_items_groups() {
       if (!this.pos_profile) {
         console.log("No POS Profile");
