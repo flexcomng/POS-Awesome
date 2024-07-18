@@ -180,7 +180,6 @@ export default {
     loading: false,
     items_group: ["ALL"],
     items: [],
-    custom_style_code: '',
     search: "",
     first_search: "",
     itemsPerPage: 1000,
@@ -560,9 +559,6 @@ export default {
               }
             }
             if (!found && item.item_code.toLowerCase().includes(this.search.toLowerCase())) {
-              found = true;
-            }
-            if (!found && item.custom_style_code && item.custom_style_code.toLowerCase().includes(this.search.toLowerCase())) {
               found = true;
             }
             return found;

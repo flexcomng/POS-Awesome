@@ -128,7 +128,7 @@ def update_opening_shift_data(data, pos_profile):
 
 @frappe.whitelist()
 def get_items(
-    pos_profile, price_list=None, item_group="", search_value="", customer=None, custom_style_code=""
+    pos_profile, price_list=None, item_group="", search_value="", customer=None
 ):
     _pos_profile = json.loads(pos_profile)
     ttl = _pos_profile.get("posa_server_cache_duration")
@@ -136,10 +136,10 @@ def get_items(
         ttl = int(ttl) * 30
 
     @redis_cache(ttl=ttl or 1800)
-    def __get_items(pos_profile, price_list, item_group, search_value, customer=None, custom_style_code=""):
-        return _get_items(pos_profile, price_list, item_group, search_value, customer, custom_style_code)
+    def __get_items(pos_profile, price_list, item_group, search_value, customer=None):
+        return _get_items(pos_profile, price_list, item_group, search_value, customer)
 
-    def _get_items(pos_profile, price_list, item_group, search_value, customer=None, custom_style_code=""):
+    def _get_items(pos_profile, price_list, item_group, search_value, customer=None,):
         pos_profile = json.loads(pos_profile)
         today = nowdate()
         data = dict()
@@ -178,10 +178,6 @@ def get_items(
                 condition += " AND item_group like '%{item_group}%'".format(
                     item_group=item_group
                 )
-            if custom_style_code:
-                condition += " AND custom_style_code like '%{custom_style_code}%'".format(
-                    custom_style_code=custom_style_code
-                )
             limit = " LIMIT {search_limit}".format(search_limit=search_limit)
 
         if not posa_show_template_items:
@@ -201,7 +197,6 @@ def get_items(
                 has_variants,
                 variant_of,
                 item_group,
-                custom_style_code,
                 idx as idx,
                 has_batch_no,
                 has_serial_no,
@@ -334,9 +329,9 @@ def get_items(
         return result
 
     if _pos_profile.get("posa_use_server_cache"):
-        return __get_items(pos_profile, price_list, item_group, search_value, customer, custom_style_code)
+        return __get_items(pos_profile, price_list, item_group, search_value, customer)
     else:
-        return _get_items(pos_profile, price_list, item_group, search_value, customer, custom_style_code)
+        return _get_items(pos_profile, price_list, item_group, search_value, customer)
 
 
 def get_item_group_condition(pos_profile):
