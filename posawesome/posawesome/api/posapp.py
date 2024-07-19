@@ -3,7 +3,7 @@
 # For license information, please see license.txt
 
 from __future__ import unicode_literals
-import json
+import json, requests
 import frappe
 from frappe.utils import nowdate, flt, cstr, getdate
 from frappe import _
@@ -31,7 +31,7 @@ from posawesome.posawesome.doctype.delivery_charges.delivery_charges import (
     get_applicable_delivery_charges as _get_applicable_delivery_charges,
 )
 from frappe.utils.caching import redis_cache
-
+from branchsync.api.utils import get_hq_config, get_hq_headers
 
 @frappe.whitelist()
 def get_opening_dialog_data():
@@ -1862,3 +1862,25 @@ def get_sales_invoice_child_table(sales_invoice, sales_invoice_item):
         "Sales Invoice Item", {"parent": parent_doc.name, "name": sales_invoice_item}
     )
     return child_doc
+
+@frappe.whitelist()
+def validate_discount_code(discount_code, branch, item):
+    if frappe.db.exists('Discount Request', discount_code):
+        return {"status": "error", "message": "Discount Code has already been used."}
+    else:
+        base_url, api_key, api_secret = get_hq_config()
+        headers = get_hq_headers(api_key, api_secret)
+        discount_data = f"{base_url}/api/method/branchsync.api.api.get_doc"
+        response = requests.get(discount_data, headers=headers, params={"doctype": "Discount Request", "name": discount_code})
+        if response.status_code == 200:
+            discount_info = response.json().get('message', {})
+
+            if not branch == discount_info["branch"]:
+                return {"status": "error", "message": "This code is not valid for this branch"}
+            
+            elif not item == discount_info["item_code"]:
+                return{"status": "error", "message": "This code is not valid for this item."}
+            else:
+                return {"status": "success", "discount": discount_info}
+        else:
+            return {"status": "error", "message": "Failed to fetch discount information."}

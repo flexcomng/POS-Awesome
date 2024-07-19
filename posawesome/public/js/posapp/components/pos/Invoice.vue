@@ -249,21 +249,10 @@
                 <v-col cols="4">
                   <v-text-field dense outlined color="primary" :label="frappe._('Stock UOM')" background-color="white" hide-details v-model="item.stock_uom" disabled></v-text-field>
                 </v-col>
-                <!-- Add Markdown Options Dropdown Here -->
-                <!-- <v-col cols="4" v-if="item.discount_percentage > 0 || item.discount_amount > 0"> -->
-                  <v-col cols="4" v-if="shouldShowMarkdownOptions(item)">
-                  <v-select
-                    dense
-                    outlined
-                    color="primary"
-                    :items="markdownOptions"
-                    :label="frappe._('Markdown Reason')"
-                    v-model="item.selectedMarkdownOption"
-                    :error="!item.selectedMarkdownOption && ((item.discount_percentage > 0 || item.discount_amount > 0))"
-                    :error-messages="!item.selectedMarkdownOption ? 'Markdown Reason is required' : ''"
-                  ></v-select>
+                <!-- Replace Markdown Options Dropdown with Apply One-Time Discount Button -->
+                <v-col cols="4">
+                  <v-btn color="primary" @click="openDiscountDialog(item)">{{ __("Apply Discount Code") }}</v-btn>
                 </v-col>
-                <!-- End Markdown Options Dropdown -->
                 <v-col align="center" cols="4" v-if="item.posa_offer_applied">
                   <v-checkbox dense :label="frappe._('Offer Applied')" v-model="item.posa_offer_applied" readonly hide-details class="shrink mr-2 mt-0"></v-checkbox>
                 </v-col>
@@ -408,28 +397,24 @@
         </v-col>
       </v-row>
     </v-card>
-      <v-dialog v-model="showAuthDialog" max-width="400">
-        <v-card>
-          <v-card-title class="headline">{{ __('Markdown Authorization') }}</v-card-title>
-          <v-card-text>
-            <v-text-field
-              v-model="authData.email"
-              label="Username/Email"
-              required
-            ></v-text-field>
-            <v-text-field
-              v-model="authData.password"
-              label="Password"
-              type="password"
-              required
-            ></v-text-field>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer></v-spacer>
-            <v-btn color="primary" @click="$root.$emit('authorize-markdown')">{{ __('Authorize') }}</v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-dialog>
+    <!-- Add the dialog for entering the one-time discount code -->
+    <v-dialog v-model="showDiscountDialog" max-width="400">
+      <v-card>
+        <v-card-title class="headline">{{ __('Enter One-Time Discount Code') }}</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="discountData.code"
+            label="Discount Code"
+            required
+          ></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="secondary" @click="showDiscountDialog = false">{{ __('Cancel') }}</v-btn>
+          <v-btn color="primary" @click="applyDiscount">{{ __('Apply') }}</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>    
   </div>
 </template>
 
@@ -486,12 +471,10 @@ export default {
         { text: __("Amount"), value: "amount", align: "center" },
         { text: __("is Offer"), value: "posa_is_offer", align: "center" },
       ],
-      showAuthDialog: false,
-      authData: {
-        email: '',
-        password: ''
+      showDiscountDialog: false,
+      discountData: {
+        code: ''
       },
-      markdownAuthorizedBy: ''
     }
   },
 
@@ -559,64 +542,48 @@ export default {
         this.expanded.splice(idx, 1);
       }
     },
-    fetchMarkdownOptions() { 
-      frappe.call({
-        method: "posawesome.posawesome.api.invoice.get_markdown_options",
-        callback: (r) => {
-          if (r.message) {
-            this.markdownOptions = r.message;
+    openDiscountDialog(item) {
+    
+      this.selectedItem = item;
+      this.showDiscountDialog = true;
+    },
+    async applyDiscount() {
+      try {
+        const response = await frappe.call({
+          method: "posawesome.posawesome.api.posapp.validate_discount_code",
+          args: {
+            discount_code: this.discountData.code,
+            branch: this.pos_profile.branch,
+            item: this.selectedItem.item_code,
           }
+        });
+        if (response.message.status === "success") {
+          
+          // Apply the discount to the invoice items
+          this.applyDiscountToItems(response.message.discount);
+          this.showDiscountDialog = false;
+          this.discountData.code = '';
+          frappe.msgprint('Discount Applied Successfully!');
+        } else {
+          frappe.msgprint(response.message.message);
         }
-      });
+      } catch (error) {
+        frappe.msgprint(`Error: ${error.message}`);
+      }
     },
-    showMarkdownAuthorizationDialog() {
-      this.showAuthDialog = true;
-    },
-   
-    authorizeMarkdown() {
-      return new Promise((resolve, reject) => {
-        this.showAuthDialog = true;
+    applyDiscountToItems(discount) {
+      // Apply the discount amount to the specific item
 
-        const handleLogin = () => {
-          frappe.call({
-            method: "posawesome.posawesome.api.api.login",
-            args: {
-              usr: this.authData.email,
-              pwd: this.authData.password
-            },
-            callback: (response) => {
-              if (response.message.status === "success") {
-                const userData = response.message.user_data;
-                const authorized_roles = ["Sales Manager"];
-                const hasRole = userData.roles.some(role => authorized_roles.includes(role.role));
+      if (this.selectedItem) {
+        if (discount.approved_discount_type === "Amount") {
+          this.selectedItem.discount_amount = discount.approved_discount;
+        } else if (discount.approved_discount_type === "Percentage") {
+          const discountAmount = discount.approved_discount;
+          this.selectedItem.discount_percentage = (discount.approved_discount_percentage * 100);
+          this.selectedItem.discount_amount = flt(discountAmount);
+        }
+      }
 
-                if (hasRole) {
-                  this.markdownAuthorizedBy = userData.full_name;
-                  this.showAuthDialog = false; 
-                  this.authData.email = '';
-                  this.authData.password = '';
-                  frappe.msgprint('Authorization Confirmed!');
-                  resolve(true);
-                } else {
-                  frappe.msgprint(__('You do not have the required authorization role.'));
-                  this.authData.email = '';
-                  this.authData.password = '';
-                  reject(new Error('Not authorized'));
-                  this.showAuthDialog = false; 
-                }
-              } else {
-                frappe.msgprint(__('Invalid credentials.'));
-                this.authData.email = '';
-                this.authData.password = '';
-                reject(new Error('Invalid credentials'));
-                this.showAuthDialog = false; 
-              }
-            }
-          });
-        };
-
-        this.$root.$once('authorize-markdown', handleLogin);
-      });
     },
 
     add_one(item) {
