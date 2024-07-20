@@ -674,18 +674,17 @@ export default {
       }
     },
     applyDiscountToItems(discount, discountCode) {
-      // Apply the discount amount to the specific item
+  // Apply the discount amount to the specific item
       if (this.selectedItem) {
         if (discount.approved_discount_type === "Amount") {
-          this.selectedItem.discount_amount = discount.approved_discount;
+          this.$set(this.selectedItem, 'discount_amount', discount.approved_discount);
         } else if (discount.approved_discount_type === "Percentage") {
           const discountAmount = discount.approved_discount;
-          this.selectedItem.discount_percentage = discount.approved_discount_percentage;
-          this.selectedItem.discount_amount = flt(discountAmount);
+          this.$set(this.selectedItem, 'discount_percentage', discount.approved_discount_percentage);
+          this.$set(this.selectedItem, 'discount_amount', this.flt(discountAmount));
         }
-        this.selectedItem.discount_code = discountCode;
+        this.$set(this.selectedItem, 'discount_code', discountCode);
       }
-
       // Force a re-render to update the UI
       this.$forceUpdate();
     },  
@@ -1533,66 +1532,49 @@ export default {
       }
     },
 
-    calc_prices(item, value, $event) {
+    calc_prices(item, value, event) {
       if (event.target.id === "rate") {
-        item.discount_percentage = 0;
+        this.$set(item, 'discount_percentage', 0);
         if (value < item.price_list_rate) {
-          item.discount_amount = this.flt(
-            this.flt(item.price_list_rate) - flt(value),
-            this.currency_precision
-          );
+          this.$set(item, 'discount_amount', this.flt(this.flt(item.price_list_rate) - flt(value), this.currency_precision));
         } else if (value < 0) {
-          item.rate = item.price_list_rate;
-          item.discount_amount = 0;
+          this.$set(item, 'rate', item.price_list_rate);
+          this.$set(item, 'discount_amount', 0);
         } else if (value > item.price_list_rate) {
-          item.discount_amount = 0;
+          this.$set(item, 'discount_amount', 0);
         }
       } else if (event.target.id === "discount_amount") {
         if (value < 0) {
-          item.discount_amount = 0;
-          item.discount_percentage = 0;
+          this.$set(item, 'discount_amount', 0);
+          this.$set(item, 'discount_percentage', 0);
         } else {
-          item.rate = flt(item.price_list_rate) - flt(value);
-          item.discount_percentage = 0;
+          this.$set(item, 'rate', this.flt(item.price_list_rate) - flt(value));
+          this.$set(item, 'discount_percentage', 0);
         }
       } else if (event.target.id === "discount_percentage") {
         if (value < 0) {
-          item.discount_amount = 0;
-          item.discount_percentage = 0;
+          this.$set(item, 'discount_amount', 0);
+          this.$set(item, 'discount_percentage', 0);
         } else {
-          item.rate = this.flt(
-            flt(item.price_list_rate) -
-              (flt(item.price_list_rate) * flt(value)) / 100,
-            this.currency_precision
-          );
-          item.discount_amount = this.flt(
-            flt(item.price_list_rate) - flt(+item.rate),
-            this.currency_precision
-          );
+          this.$set(item, 'rate', this.flt(flt(item.price_list_rate) - (flt(item.price_list_rate) * flt(value)) / 100, this.currency_precision));
+          this.$set(item, 'discount_amount', this.flt(flt(item.price_list_rate) - flt(item.rate), this.currency_precision));
         }
       }
+      this.$forceUpdate(); // Ensure reactivity
     },
-
     calc_item_price(item) {
       if (!item.posa_offer_applied) {
         if (item.price_list_rate) {
-          item.rate = item.price_list_rate;
+          this.$set(item, 'rate', item.price_list_rate);
         }
       }
       if (item.discount_percentage) {
-        item.rate =
-          flt(item.price_list_rate) -
-          (flt(item.price_list_rate) * flt(item.discount_percentage)) / 100;
-        item.discount_amount = this.flt(
-          flt(item.price_list_rate) - flt(item.rate),
-          this.currency_precision
-        );
+        this.$set(item, 'rate', flt(item.price_list_rate) - (flt(item.price_list_rate) * flt(item.discount_percentage)) / 100);
+        this.$set(item, 'discount_amount', this.flt(flt(item.price_list_rate) - flt(item.rate), this.currency_precision));
       } else if (item.discount_amount) {
-        item.rate = this.flt(
-          flt(item.price_list_rate) - flt(item.discount_amount),
-          this.currency_precision
-        );
+        this.$set(item, 'rate', this.flt(flt(item.price_list_rate) - flt(item.discount_amount), this.currency_precision));
       }
+      this.$forceUpdate(); // Ensure reactivity
     },
 
     calc_uom(item, value) {
