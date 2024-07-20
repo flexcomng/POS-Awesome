@@ -249,10 +249,17 @@
                 <v-col cols="4">
                   <v-text-field dense outlined color="primary" :label="frappe._('Stock UOM')" background-color="white" hide-details v-model="item.stock_uom" disabled></v-text-field>
                 </v-col>
-                <!-- Replace Markdown Options Dropdown with Apply One-Time Discount Button -->
-                <v-col cols="4">
-                  <v-btn color="primary" @click="openDiscountDialog(item)">{{ __("Apply Discount Code") }}</v-btn>
-                </v-col>
+                <!-- Conditionally render discount code button and field -->
+                <template v-if="!item.discount_code">
+                  <v-col cols="4">
+                    <v-btn color="primary" @click="openDiscountDialog(item)">{{ __("Apply Discount Code") }}</v-btn>
+                  </v-col>
+                </template>
+                <template v-else>
+                  <v-col cols="4">
+                    <v-text-field dense outlined color="primary" :label="frappe._('Discount Code')" background-color="white" hide-details v-model="item.discount_code" disabled></v-text-field>
+                  </v-col>
+                </template>
                 <v-col align="center" cols="4" v-if="item.posa_offer_applied">
                   <v-checkbox dense :label="frappe._('Offer Applied')" v-model="item.posa_offer_applied" readonly hide-details class="shrink mr-2 mt-0"></v-checkbox>
                 </v-col>
@@ -414,7 +421,7 @@
           <v-btn color="primary" @click="applyDiscount">{{ __('Apply') }}</v-btn>
         </v-card-actions>
       </v-card>
-    </v-dialog>    
+    </v-dialog>
   </div>
 </template>
 
@@ -518,12 +525,13 @@ export default {
   },
 
   methods: {
-    shouldShowMarkdownOptions(item) {
+    shouldShowDiscountButton(item) {
       let discountPercentage = parseFloat(String(item.discount_percentage || '0').replace(/,/g, ''));
       let discountAmount = parseFloat(String(item.discount_amount || '0').replace(/,/g, ''));
       
       if (isNaN(discountPercentage)) discountPercentage = 0;
       if (isNaN(discountAmount)) discountAmount = 0;
+      console.log('Discount Values', discountPercentage, discountAmount)
       
       return discountPercentage > 0 || discountAmount > 0;
     },
@@ -560,7 +568,7 @@ export default {
         if (response.message.status === "success") {
           
           // Apply the discount to the invoice items
-          this.applyDiscountToItems(response.message.discount);
+          this.applyDiscountToItems(response.message.discount, this.discountData.code);
           this.showDiscountDialog = false;
           this.discountData.code = '';
           frappe.msgprint('Discount Applied Successfully!');
@@ -571,7 +579,7 @@ export default {
         frappe.msgprint(`Error: ${error.message}`);
       }
     },
-    applyDiscountToItems(discount) {
+    applyDiscountToItems(discount, discountCode) {
       // Apply the discount amount to the specific item
 
       if (this.selectedItem) {
@@ -579,11 +587,11 @@ export default {
           this.selectedItem.discount_amount = discount.approved_discount;
         } else if (discount.approved_discount_type === "Percentage") {
           const discountAmount = discount.approved_discount;
-          this.selectedItem.discount_percentage = (discount.approved_discount_percentage * 100);
+          this.selectedItem.discount_percentage = (discount.approved_discount_percentage);
           this.selectedItem.discount_amount = flt(discountAmount);
+          this.selectedItem.discount_code = discountCode;
         }
       }
-
     },
 
     add_one(item) {

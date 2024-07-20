@@ -1874,6 +1874,7 @@ def validate_discount_code(discount_code, branch, item):
         response = requests.get(discount_data, headers=headers, params={"doctype": "Discount Request", "name": discount_code})
         if response.status_code == 200:
             discount_info = response.json().get('message', {})
+            print('Discount Data Received', discount_info)
 
             if not branch == discount_info["branch"]:
                 return {"status": "error", "message": "This code is not valid for this branch"}
@@ -1881,6 +1882,29 @@ def validate_discount_code(discount_code, branch, item):
             elif not item == discount_info["item_code"]:
                 return{"status": "error", "message": "This code is not valid for this item."}
             else:
+                discount_entry = create_discount_record(discount_info)
+                print('Discount entry created', discount_entry)
                 return {"status": "success", "discount": discount_info}
         else:
             return {"status": "error", "message": "Failed to fetch discount information."}
+
+
+@frappe.whitelist()
+def create_discount_record(discount_info):
+    try:
+        doc_type = discount_info.pop('doctype', 'Discount Request')
+        dr = frappe.get_doc(dict(doctype=doc_type, **discount_info))
+
+
+        dr.insert(ignore_permissions=True, ignore_mandatory=True)
+        frappe.db.commit()
+
+        new_entry = frappe.get_doc('Discount Request', dr.name)
+        desired_name = discount_info.get("name", new_entry.discount_code)
+        frappe.db.sql("""UPDATE `tabDiscount Request` SET name=%s WHERE name=%s""", (desired_name, new_entry.name))
+        frappe.db.commit()
+
+        return new_entry
+
+    except Exception as e:
+        return None
