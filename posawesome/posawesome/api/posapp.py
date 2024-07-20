@@ -1866,7 +1866,7 @@ def get_sales_invoice_child_table(sales_invoice, sales_invoice_item):
 @frappe.whitelist()
 def validate_discount_code(discount_code, branch, item):
     if frappe.db.exists('Discount Request', discount_code):
-        return {"status": "error", "message": "Discount Code has already been used."}
+        return {"status": "error", "message": "This Discount Code has already been used."}
     else:
         base_url, api_key, api_secret = get_hq_config()
         headers = get_hq_headers(api_key, api_secret)
@@ -1874,7 +1874,6 @@ def validate_discount_code(discount_code, branch, item):
         response = requests.get(discount_data, headers=headers, params={"doctype": "Discount Request", "name": discount_code})
         if response.status_code == 200:
             discount_info = response.json().get('message', {})
-            print('Discount Data Received', discount_info)
 
             if not branch == discount_info["branch"]:
                 return {"status": "error", "message": "This code is not valid for this branch"}
@@ -1882,8 +1881,7 @@ def validate_discount_code(discount_code, branch, item):
             elif not item == discount_info["item_code"]:
                 return{"status": "error", "message": "This code is not valid for this item."}
             else:
-                discount_entry = create_discount_record(discount_info)
-                print('Discount entry created', discount_entry)
+                create_discount_record(discount_info)
                 return {"status": "success", "discount": discount_info}
         else:
             return {"status": "error", "message": "Failed to fetch discount information."}
@@ -1892,8 +1890,13 @@ def validate_discount_code(discount_code, branch, item):
 @frappe.whitelist()
 def create_discount_record(discount_info):
     try:
+        user = frappe.session.user
+        logged_by = frappe.db.get_value('User', user, 'full_name')
         doc_type = discount_info.pop('doctype', 'Discount Request')
         dr = frappe.get_doc(dict(doctype=doc_type, **discount_info))
+
+        dr.used_by = logged_by
+        dr.used_datetime = frappe.utils.now_datetime()
 
 
         dr.insert(ignore_permissions=True, ignore_mandatory=True)
@@ -1908,3 +1911,15 @@ def create_discount_record(discount_info):
 
     except Exception as e:
         return None
+
+
+@frappe.whitelist()
+def delete_discount_request(discount_code):
+    if not discount_code:
+        frappe.throw(_("Discount Code is required"))
+
+    if frappe.db.exists('Discount Request', discount_code):
+        frappe.delete_doc('Discount Request', discount_code)
+        return {'status': 'success', 'message': 'Discount Request deleted successfully'}
+    else:
+        return {'status': 'error', 'message': 'Discount Request not found'}

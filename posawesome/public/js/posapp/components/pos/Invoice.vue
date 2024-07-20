@@ -525,16 +525,6 @@ export default {
   },
 
   methods: {
-    shouldShowDiscountButton(item) {
-      let discountPercentage = parseFloat(String(item.discount_percentage || '0').replace(/,/g, ''));
-      let discountAmount = parseFloat(String(item.discount_amount || '0').replace(/,/g, ''));
-      
-      if (isNaN(discountPercentage)) discountPercentage = 0;
-      if (isNaN(discountAmount)) discountAmount = 0;
-      console.log('Discount Values', discountPercentage, discountAmount)
-      
-      return discountPercentage > 0 || discountAmount > 0;
-    },
 
     remove_item(item) {
       const index = this.items.findIndex(
@@ -593,7 +583,24 @@ export default {
         }
       }
     },
+    async deleteDiscountRequest(discount_code) {
+      try {
+        const response = await frappe.call({
+          method: "posawesome.posawesome.api.posapp.delete_discount_request",
+          args: {
+            discount_code: discount_code
+          }
+        });
 
+        if (response.message.status === "success") {
+          console.log('Discount Request deleted successfully');
+        } else {
+          frappe.msgprint(response.message.message);
+        }
+      } catch (error) {
+        frappe.msgprint(`Error: ${error.message}`);
+      }
+    },
     add_one(item) {
       item.qty++;
       if (item.qty == 0) {
@@ -602,9 +609,12 @@ export default {
       this.calc_stock_qty(item, item.qty);
       this.$forceUpdate();
     },
-    subtract_one(item) {
+    async subtract_one(item) {
       item.qty--;
       if (item.qty == 0) {
+        if (item.discount_code) {
+          await this.deleteDiscountRequest(item.discount_code);
+        }
         this.remove_item(item);
       }
       this.calc_stock_qty(item, item.qty);
@@ -806,6 +816,7 @@ export default {
           }
           item.markdown_option = item.selectedMarkdownOption || "";
           item.markdown_authorized_by = this.markdownAuthorizedBy || "";
+          item.discount_code = item.discount_code || "";
 
         });
         this.customer = data.customer;
@@ -1006,6 +1017,7 @@ export default {
           price_list_rate: item.price_list_rate,
           markdown_option: item.selectedMarkdownOption || "", 
           markdown_authorized_by: this.markdownAuthorizedBy || "", 
+          discount_code: this.discount_code || "", 
         };
         items_list.push(new_item);
       });
@@ -1124,38 +1136,6 @@ export default {
           color: "error",
         });
         return;
-      }
-      let needsAuthorization = false;
-      for (let item of this.items) {
-        if (this.shouldShowMarkdownOptions(item) && !item.selectedMarkdownOption) {
-          evntBus.$emit("show_mesage", {
-            text: `No markdown reason was selected for item ${item.item_code}!`,
-            color: "error",
-          });
-          return;
-        }
-        if (this.shouldShowMarkdownOptions(item)) {
-          needsAuthorization = true;
-        }
-      }
-
-      if (needsAuthorization) {
-        try {
-          const authorized = await this.authorizeMarkdown();
-          if (!authorized) {
-            evntBus.$emit("show_mesage", {
-              text: __(`Authorization failed!`),
-              color: "error",
-            });
-            return;
-          }
-        } catch (error) {
-          evntBus.$emit("show_mesage", {
-            text: __(`Authorization error: ${error.message}`),
-            color: "error",
-          });
-          return;
-        }
       }
 
       if (!this.validate()) {
@@ -2661,7 +2641,6 @@ export default {
     evntBus.$off("set_all_items");
   },
   created() {
-    this.fetchMarkdownOptions();
     document.addEventListener("keydown", this.shortOpenPayment.bind(this));
     document.addEventListener("keydown", this.shortDeleteFirstItem.bind(this));
     document.addEventListener("keydown", this.shortOpenFirstItem.bind(this));
