@@ -201,6 +201,10 @@ export default {
     loyalty_program: null,
   }),
   watch: {},
+  mounted() {
+    this.getCustomerGroups();
+    this.getCustomerTerritorys();
+  },
   methods: {
     close_dialog() {
       this.customerDialog = false;
@@ -236,9 +240,13 @@ export default {
             data.forEach((el) => {
               vm.groups.push(el.name);
             });
+            if (vm.groups.includes('Individual')) {
+              vm.group = 'Individual';
+            }
           }
         });
     },
+
     getCustomerTerritorys() {
       if (this.territorys.length > 0) return;
       const vm = this;
@@ -254,9 +262,13 @@ export default {
             data.forEach((el) => {
               vm.territorys.push(el.name);
             });
+            if (vm.territorys.includes('Nigeria')) {
+              vm.territory = 'Nigeria';
+            }
           }
         });
     },
+
     getGenders() {
       const vm = this;
       frappe.db
@@ -273,7 +285,6 @@ export default {
         });
     },
     submit_dialog() {
-      // validate if all required fields are filled
       if (!this.customer_name) {
         evntBus.$emit('show_mesage', {
           text: __('Customer name is required.'),
