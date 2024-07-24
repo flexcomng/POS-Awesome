@@ -1875,7 +1875,10 @@ def validate_discount_code(discount_code, branch, item):
         if response.status_code == 200:
             discount_info = response.json().get('message', {})
 
-            if not branch == discount_info["branch"]:
+            if not discount_code == discount_info["discount_code"]:
+                return {"status": "error", "message": "This code is not valid"}
+            
+            elif not branch == discount_info["branch"]:
                 return {"status": "error", "message": "This code is not valid for this branch"}
             
             elif not item == discount_info["item_code"]:

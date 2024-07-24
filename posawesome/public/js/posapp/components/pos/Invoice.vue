@@ -140,7 +140,7 @@
                   </v-col>
                   <v-spacer></v-spacer>
                   <v-col cols="1">
-                    <v-btn :disabled="!!item.posa_is_offer || !!item.posa_is_replace" icon color="secondary" @click.stop="subtract_one(item)">
+                    <v-btn :disabled="!!item.posa_is_offer || !!item.posa_is_replace || (item.discount_code && item.discount_qty >= item.qty)" icon color="secondary" @click.stop="subtract_one(item)">
                       <v-icon>mdi-minus-circle-outline</v-icon>
                     </v-btn>
                   </v-col>
@@ -165,7 +165,7 @@
                       :value="formtFloat(item.qty)"
                       @change="[setFormatedFloat(item, 'qty', null, false, $event), calc_stock_qty(item, $event)]"
                       :rules="[isNumber]"
-                      :disabled="!!item.posa_is_offer || !!item.posa_is_replace"
+                      :disabled="!!item.posa_is_offer || !!item.posa_is_replace || !!item.discount_code"
                     ></v-text-field>
                   </v-col>
                   <v-col cols="4">
@@ -258,6 +258,7 @@
                   <template v-else>
                     <v-col cols="4">
                       <v-text-field dense outlined color="primary" :label="frappe._('Discount Code')" background-color="white" hide-details v-model="item.discount_code" disabled></v-text-field>
+                      <v-text-field dense outlined color="primary" :label="frappe._('Discount QTY')" background-color="white" hide-details v-model="item.discount_qty" :rules="[isNumber]" disabled></v-text-field>
                     </v-col>
                   </template>
                   <v-col align="center" cols="4" v-if="item.posa_offer_applied">
@@ -341,7 +342,7 @@
               ></v-text-field>
             </v-col>
             <v-col cols="6" class="pa-1 mt-2">
-              <v-text-field :value="formtCurrency(total_items_discount_amount)" :prefix="currencySymbol(pos_profile.currency)" :label="frappe._('Items Discounts')" outlined dense color="warning" readonly hide-details></v-text-field>
+              <v-text-field :value="formtCurrency(total_items_discount_amount)" :prefix="currencySymbol(pos_profile.currency)" :label="frappe._('Items Discounts')" :disabled="total_items_discount_amount > 0" outlined dense color="warning" readonly hide-details></v-text-field>
             </v-col>
 
             <v-col cols="6" class="pa-1 mt-2">
@@ -684,6 +685,8 @@ export default {
           this.$set(this.selectedItem, 'discount_amount', this.flt(discountAmount));
         }
         this.$set(this.selectedItem, 'discount_code', discountCode);
+        this.$set(this.selectedItem, 'qty', flt(discount.qty));
+        this.$set(this.selectedItem, 'discount_qty', flt(discount.qty));
       }
       // Force a re-render to update the UI
       this.$forceUpdate();
