@@ -258,7 +258,7 @@
                   <template v-else>
                     <v-col cols="4">
                       <v-text-field dense outlined color="primary" :label="frappe._('Discount Code')" background-color="white" hide-details v-model="item.discount_code" disabled></v-text-field>
-                      <v-text-field dense outlined color="primary" :label="frappe._('Discount QTY')" background-color="white" hide-details v-model="item.discount_qty" :rules="[isNumber]" disabled></v-text-field>
+                      <v-text-field dense outlined color="primary" :label="frappe._('Discount QTY')" background-color="white" hide-details v-model="item.discount_qty" :rules="[isNumber]" v-show="item.discount_qty === 0 || !item.discount_qty" disabled></v-text-field>
                     </v-col>
                   </template>
                   <v-col align="center" cols="4" v-if="item.posa_offer_applied">
