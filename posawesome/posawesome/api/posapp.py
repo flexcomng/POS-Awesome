@@ -1926,3 +1926,8 @@ def delete_discount_request(discount_code):
         return {'status': 'success', 'message': 'Discount Request deleted successfully'}
     else:
         return {'status': 'error', 'message': 'Discount Request not found'}
+
+@frappe.whitelist()
+def get_user_full_name(user):
+    user_doc = frappe.get_doc("User", user)
+    return user_doc.full_name
