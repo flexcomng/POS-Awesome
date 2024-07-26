@@ -1835,6 +1835,33 @@ def search_serial_or_batch_or_barcode_number(search_value, search_serial_no):
     return {}
 
 
+@frappe.whitelist()
+def get_item_by_barcode(barcode):
+    item = frappe.get_all('Item', filters={'barcode': barcode}, fields=['item_code', 'item_name', 'description', 'item_group', 'brand', 'stock_uom', 'image', 'has_variants'])
+    if not item:
+        item = frappe.get_all('Item', filters={'item_code': barcode}, fields=['item_code', 'item_name', 'description', 'item_group', 'brand', 'stock_uom', 'image', 'has_variants'])
+        if not item:
+            serial_no_data = frappe.get_all('Serial No', filters={'name': barcode}, fields=['item_code'])
+            if serial_no_data:
+                item_code = serial_no_data[0]['item_code']
+                item = frappe.get_all('Item', filters={'item_code': item_code}, fields=['item_code', 'item_name', 'description', 'item_group', 'brand', 'stock_uom', 'image', 'has_variants'])
+            else:
+                return None
+    
+    item = item[0]
+
+    bins = frappe.get_all('Bin', filters={'item_code': item['item_code']}, fields=['actual_qty'])
+    item['actual_qty'] = bins[0]['actual_qty'] if bins else 0
+
+    serial_no_data = frappe.get_all('Serial No', filters={'item_code': item['item_code']}, fields=['name as serial_no'])
+    batch_no_data = frappe.get_all('Batch', filters={'item': item['item_code']}, fields=['name as batch_no'])
+    item['serial_no_data'] = serial_no_data
+    item['batch_no_data'] = batch_no_data
+    
+    return item
+
+
+
 def get_seearch_items_conditions(item_code, serial_no, batch_no, barcode):
     if serial_no or batch_no or barcode:
         return " and name = {0}".format(frappe.db.escape(item_code))

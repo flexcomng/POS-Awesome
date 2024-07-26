@@ -29,6 +29,19 @@
             ref="debounce_search"
           ></v-text-field>
         </v-col>
+        <v-col class="pb-0 mb-2">
+          <v-text-field
+            dense
+            outlined
+            color="primary"
+            :label="frappe._('Scan Barcode')"
+            background-color="white"
+            hide-details
+            v-model="barcode"
+            @keydown.enter="handle_barcode_scan"
+            ref="barcode_input"
+          ></v-text-field>
+        </v-col>
         <v-col cols="3" class="pb-0 mb-2" v-if="pos_profile.posa_input_qty">
           <v-text-field
             dense
@@ -180,8 +193,13 @@ export default {
     loading: false,
     items_group: ["ALL"],
     items: [],
+    custom_style_code: '',
     search: "",
     first_search: "",
+    barcode: "",
+    lastBarcode: "",
+    lastScanTime: 0,
+    scanInterval: 500, // 500 ms interval to avoid duplicate scans
     itemsPerPage: 1000,
     offersCount: 0,
     appliedOffersCount: 0,
@@ -347,7 +365,7 @@ export default {
       }
       const qty = this.get_item_qty(this.first_search);
       const new_item = { ...this.filtred_items[0] };
-      new_item.qty = flt(qty);
+      new_item.qty = qty;
       new_item.item_barcode.forEach((element) => {
         if (this.search == element.barcode) {
           new_item.uom = element.posa_uom;
@@ -404,6 +422,50 @@ export default {
         vm.enter_event();
       }
     },
+    handle_barcode_scan() {
+      const vm = this;
+      const barcode = vm.barcode.trim();
+      const currentTime = new Date().getTime();
+
+      if (barcode && (barcode !== vm.lastBarcode || currentTime - vm.lastScanTime > vm.scanInterval)) {
+        vm.loading = true;
+        vm.lastBarcode = barcode;
+        vm.lastScanTime = currentTime;
+
+        frappe.call({
+          method: "posawesome.posawesome.api.posapp.get_item_by_barcode",
+          args: {
+            barcode: barcode,
+          },
+          callback: function (r) {
+            if (r.message) {
+              vm.add_item(r.message);
+            } else {
+              evntBus.$emit("show_mesage", {
+                text: `No Item has this barcode "${barcode}"`,
+                color: "error",
+              });
+              frappe.utils.play_sound("error");
+            }
+            vm.loading = false;
+            vm.barcode = "";
+            vm.$refs.barcode_input.focus();
+          },
+          error: function () {
+            evntBus.$emit("show_mesage", {
+              text: `Failed to fetch item for barcode "${barcode}"`,
+              color: "error",
+            });
+            frappe.utils.play_sound("error");
+            vm.loading = false;
+            vm.barcode = "";
+            vm.$refs.barcode_input.focus();
+          },
+        });
+      } else {
+        vm.barcode = "";
+      }
+    },
     get_item_qty(first_search) {
       let scal_qty = Math.abs(this.qty);
       if (first_search.startsWith(this.pos_profile.posa_scale_barcode_start)) {
@@ -445,7 +507,6 @@ export default {
       this.$refs.debounce_search.focus();
     },
     update_items_details(items) {
-      // set debugger
       const vm = this;
       frappe.call({
         method: "posawesome.posawesome.api.posapp.get_items_details",
@@ -487,17 +548,8 @@ export default {
       });
     },
     trigger_onscan(sCode) {
-      if (this.filtred_items.length == 0) {
-        evntBus.$emit("show_mesage", {
-          text: `No Item has this barcode "${sCode}"`,
-          color: "error",
-        });
-        frappe.utils.play_sound("error");
-      } else {
-        this.enter_event();
-        this.debounce_search = null;
-        this.search = null;
-      }
+      this.barcode = sCode;
+      this.handle_barcode_scan();
     },
     generateWordCombinations(inputString) {
       const words = inputString.split(" ");
@@ -559,6 +611,9 @@ export default {
               }
             }
             if (!found && item.item_code.toLowerCase().includes(this.search.toLowerCase())) {
+              found = true;
+            }
+            if (!found && item.custom_style_code && item.custom_style_code.toLowerCase().includes(this.search.toLowerCase())) {
               found = true;
             }
             return found;
@@ -669,5 +724,3 @@ export default {
   },
 };
 </script>
-
-<style scoped></style>
