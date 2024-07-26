@@ -1,64 +1,83 @@
 <template>
   <div>
-    <v-autocomplete
-      dense
-      clearable
-      auto-select-first
-      outlined
-      color="primary"
-      :label="frappe._('Customer')"
-      v-model="customer"
-      :items="customers"
-      item-text="customer_name"
-      item-value="name"
-      background-color="white"
-      :no-data-text="__('Please enter at least 3 characters')"
-      hide-details
-      :filter="() => true"
-      :search-input.sync="searchQuery"
-      :loading="loading"
-      append-icon="mdi-plus"
-      @click:append="new_customer"
-      prepend-inner-icon="mdi-account-edit"
-      @click:prepend-inner="edit_customer"
-      @focus="loadLocalStorageCustomers"
+    <v-menu
+      v-model="menu"
+      :close-on-content-click="false"
+      :nudge-width="0"
+      offset-y
+      :max-height="200"
+      transition="scale-transition"
     >
-      <template v-slot:item="data">
-        <v-list-item>
+      <template v-slot:activator="{ on, attrs }">
+        <v-text-field
+          dense
+          clearable
+          outlined
+          color="primary"
+          v-model="searchQuery"
+          label="Search Customer"
+          v-bind="attrs"
+          v-on="on"
+          @keyup.enter="search_customers"
+          hide-details
+          prepend-inner-icon="mdi-account-edit"
+          @click:prepend-inner="open_edit_customer"
+          @focus="menu = true"
+        >
+          <template v-slot:append>
+            <v-icon
+              class="mr-2"
+              @click="search_customers"
+            >mdi-magnify</v-icon>
+            <v-icon
+              @click="new_customer"
+            >mdi-plus</v-icon>
+          </template>
+        </v-text-field>
+      </template>
+      <v-list v-if="customers.length" dense>
+        <v-list-item
+          v-for="(customer, index) in customers"
+          :key="index"
+          @click="select_customer(customer)"
+        >
           <v-list-item-content>
             <v-list-item-title
               class="primary--text subtitle-1"
-              v-html="data.item.customer_name"
+              v-html="customer.customer_name"
             ></v-list-item-title>
             <v-list-item-subtitle
-              v-if="data.item.customer_name != data.item.name"
-              v-html="`ID: ${data.item.name}`"
+              v-if="customer.customer_name != customer.name"
+              v-html="`ID: ${customer.name}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle
-              v-if="data.item.tax_id"
-              v-html="`TAX ID: ${data.item.tax_id}`"
+            <v-list-item-subtitle v-if="customer.tax_id"
+              v-html="`TAX ID: ${customer.tax_id}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle
-              v-if="data.item.email_id"
-              v-html="`Email: ${data.item.email_id}`"
+            <v-list-item-subtitle v-if="customer.email_id"
+              v-html="`Email: ${customer.email_id}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle
-              v-if="data.item.mobile_no"
-              v-html="`Mobile No: ${data.item.mobile_no}`"
+            <v-list-item-subtitle v-if="customer.mobile_no"
+              v-html="`Mobile No: ${customer.mobile_no}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle
-              v-if="data.item.primary_address"
-              v-html="`Primary Address: ${data.item.primary_address}`"
+            <v-list-item-subtitle v-if="customer.primary_address"
+              v-html="`Primary Address: ${customer.primary_address}`"
             ></v-list-item-subtitle>
           </v-list-item-content>
         </v-list-item>
-      </template>
-    </v-autocomplete>
+      </v-list>
+    </v-menu>
     <div class="mb-8">
       <UpdateCustomer></UpdateCustomer>
     </div>
   </div>
 </template>
+
+<style scoped>
+.v-menu__content {
+  max-height: 500px !important;
+  overflow-y: auto !important;
+}
+</style>
 
 <script>
 import { evntBus } from '../../bus';
@@ -69,10 +88,10 @@ export default {
     pos_profile: '',
     customers: [],
     customer: '',
+    searchQuery: '',
     readonly: false,
     customer_info: {},
-    searchQuery: '',
-    loading: false,
+    menu: false,
   }),
 
   components: {
@@ -80,83 +99,74 @@ export default {
   },
 
   methods: {
-    async get_customer_names(searchQuery = '', limit = 100) {
-      if (!this.pos_profile || !this.pos_profile.pos_profile) {
-        console.error("pos_profile is not set");
+    search_customers(event) {
+      event.stopPropagation();
+      if (this.searchQuery.length < 3) {
+        console.warn("Please enter at least 3 characters to search.");
         return;
       }
-      this.loading = true;
-
-      try {
-        const response = await frappe.call({
-          method: 'posawesome.posawesome.api.posapp.get_customer_names',
-          args: {
-            pos_profile: JSON.stringify(this.pos_profile),
-            limit,
-            search: searchQuery,
-          },
-        });
-
-        if (response.message) {
-          if (searchQuery.length >= 3) {
-            this.customers = response.message;
+      console.log("Searching customers with query:", this.searchQuery);
+      const vm = this;
+      frappe.call({
+        method: 'posawesome.posawesome.api.posapp.search_customers',
+        args: {
+          query: this.searchQuery,
+          pos_profile: this.pos_profile.pos_profile,
+        },
+        callback: function (r) {
+          if (r.message) {
+            vm.customers = r.message;
+            vm.menu = true; // Open the menu when search results are available
+            console.log("Search results:", vm.customers);
           }
-        }
-      } catch (error) {
-        console.error("Error fetching customer names:", error);
-      } finally {
-        this.loading = false;
+        },
+      });
+    },
+    select_customer(customer) {
+      this.customer = customer.name;
+      this.searchQuery = customer.customer_name;
+      this.customers = [];
+      this.menu = false; // Close the menu on selection
+      this.fetch_customer_details(customer.name);
+    },
+    fetch_customer_details(customer_id) {
+      if (!customer_id) {
+        console.error("Customer ID is undefined");
+        return;
       }
+      const vm = this;
+      frappe.call({
+        method: 'posawesome.posawesome.api.posapp.get_customer_details',
+        args: {
+          customer_id: customer_id,
+        },
+        callback: function (r) {
+          if (r.message) {
+            vm.customer_info = r.message;
+          }
+        },
+      });
     },
-
-    loadLocalStorageCustomers() {
-      this.customers = JSON.parse(localStorage.getItem('customer_storage')) || [];
-    },
-
-    searchCustomers(query) {
-      this.searchQuery = query;
-      const localCustomers = JSON.parse(localStorage.getItem('customer_storage')) || [];
-      if (query.length < 3) {
-        this.customers = localCustomers;
-      } else {
-        const filteredCustomers = localCustomers.filter(customer =>
-          customer.customer_name.toLowerCase().includes(query.toLowerCase()) ||
-          (customer.tax_id && customer.tax_id.toLowerCase().includes(query.toLowerCase())) ||
-          (customer.email_id && customer.email_id.toLowerCase().includes(query.toLowerCase())) ||
-          (customer.mobile_no && customer.mobile_no.toLowerCase().includes(query.toLowerCase()))
-        );
-
-        this.customers = filteredCustomers;
-        this.get_customer_names(query);
-      }
-    },
-
-    onFocus() {
-      this.loadLocalStorageCustomers();
-    },
-
     new_customer() {
       evntBus.$emit('open_update_customer', null);
     },
-
-    edit_customer() {
+    handleEditIconClick(event) {
+      event.stopPropagation();
+      this.open_edit_customer();
+    },
+    open_edit_customer() {
       evntBus.$emit('open_update_customer', this.customer_info);
     },
   },
 
-  created() {
-    this.$nextTick(() => {
-      this.get_customer_names();
-    });
-
+  created: function () {
     this.$nextTick(function () {
       evntBus.$on('register_pos_profile', (pos_profile) => {
         this.pos_profile = pos_profile;
-        this.get_customer_names();
+        console.log("Registered POS profile:", pos_profile);
       });
       evntBus.$on('payments_register_pos_profile', (pos_profile) => {
         this.pos_profile = pos_profile;
-        this.get_customer_names();
       });
       evntBus.$on('set_customer', (customer) => {
         this.customer = customer;
@@ -171,14 +181,13 @@ export default {
         this.customer_info = data;
       });
       evntBus.$on('fetch_customer_details', () => {
-        this.get_customer_names();
       });
     });
   },
 
   watch: {
-    searchQuery(newQuery) {
-      this.searchCustomers(newQuery);
+    customer(newVal) {
+      evntBus.$emit('update_customer', this.customer);
     },
   },
 };
