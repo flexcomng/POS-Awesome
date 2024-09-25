@@ -110,7 +110,9 @@
           </v-btn>
         </v-list-item>
         <!-- <MyPopup/> -->
+        <!-- POS and Update Price List Buttons -->
         <v-list-item-group v-model="item" color="white">
+          <!-- Iterate through existing items (POS) -->
           <v-list-item
             v-for="item in items"
             :key="item.text"
@@ -121,6 +123,20 @@
             </v-list-item-icon>
             <v-list-item-content>
               <v-list-item-title v-text="item.text"></v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
+
+          <!-- Iterate through positems (Update Price List) -->
+          <v-list-item
+            v-for="positem in positems"
+            :key="positem.text"
+            @click="startPriceUpdate"
+          >
+            <v-list-item-icon>
+              <v-icon v-text="positem.icon"></v-icon>
+            </v-list-item-icon>
+            <v-list-item-content>
+              <v-list-item-title v-text="positem.text"></v-list-item-title>
             </v-list-item-content>
           </v-list-item>
         </v-list-item-group>
@@ -140,6 +156,7 @@
   </nav>
 </template>
 
+
 <script>
 import { evntBus } from '../bus';
 
@@ -151,6 +168,7 @@ export default {
       mini: true,
       item: 0,
       items: [{ text: 'POS', icon: 'mdi-network-pos' }],
+      positems: [{ text: 'Price Update', icon: 'mdi-cash' }],
       page: '',
       fav: true,
       menu: false,
@@ -245,6 +263,40 @@ export default {
         },
         true
       );
+    },
+    // Start Price List Update
+    async startPriceUpdate() {
+      this.snack = true;
+      this.snackColor = 'info';
+      this.snackText = 'Price update in progress... this could take a few minutes.';
+      
+      try {
+        // Call the backend function to update prices
+        const response = await frappe.call({
+          method: 'posawesome.posawesome.api.posapp.sync_item_price',
+        });
+
+        if (response.message.status === 'completed') {
+          this.snackColor = 'success';
+          this.snackText = 'Price update completed successfully!';
+        } else if (response.message.status === 'volume_too_high') {
+          this.snackColor = 'warning';
+          this.snackText = 'Volume exceeds maximum for quick update. Please update price list from the Branch Control Center.';
+        } else {
+          this.snackColor = 'error';
+          this.snackText = 'Error updating price list!';
+        }
+      } catch (error) {
+        console.error('Error during price update:', error);
+        this.snackColor = 'error';
+        this.snackText = 'Error during price update.';
+      }
+    },
+
+    showSnackbar(text, color) {
+      this.snackText = text;
+      this.snackColor = color;
+      this.snack = true;
     },
   },
   created: function () {
