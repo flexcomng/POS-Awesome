@@ -209,18 +209,18 @@ export default {
       this.snackText = data.text;
     },
     logOut() {
-      var me = this;
-      me.logged_out = true;
-      return frappe.call({
-        method: 'logout',
-        callback: function (r) {
-          if (r.exc) {
-            return;
-          }
-          frappe.set_route('/login');
-          location.reload();
-        },
-      });
+        var me = this;
+        me.logged_out = true;
+        return frappe.call({
+            method: 'logout',
+            callback: function (r) {
+                if (r.exc) {
+                    return;
+                }
+                // Redirect to the login page after logout
+                window.location.href = '/login';  // Redirects to base URL + /login
+            },
+        });
     },
     print_last_invoice() {
       if (!this.last_invoice) return;
