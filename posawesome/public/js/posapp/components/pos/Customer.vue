@@ -1,71 +1,57 @@
 <template>
   <div>
-    <v-menu
-      v-model="menu"
-      :close-on-content-click="false"
-      :nudge-width="0"
-      offset-y
-      :max-height="200"
-      transition="scale-transition"
+    <v-autocomplete
+      dense
+      clearable
+      auto-select-first
+      outlined
+      color="primary"
+      :label="frappe._('Customer')"
+      v-model="customer"
+      :items="customers"
+      item-text="customer_name"
+      item-value="name"
+      background-color="white"
+      :no-data-text="__('Customer not found')"
+      hide-details
+      :filter="customFilter"
+      :disabled="readonly"
+      append-icon="mdi-plus"
+      @click:append="new_customer"
+      prepend-inner-icon="mdi-account-edit"
+      @click:prepend-inner="edit_customer"
     >
-      <template v-slot:activator="{ on, attrs }">
-        <v-text-field
-          dense
-          clearable
-          outlined
-          color="primary"
-          v-model="searchQuery"
-          label="Search Customer"
-          v-bind="attrs"
-          v-on="on"
-          @keyup.enter="search_customers"
-          hide-details
-          prepend-inner-icon="mdi-account-edit"
-          @click:prepend-inner="open_edit_customer"
-          @focus="menu = true"
-        >
-          <template v-slot:append>
-            <v-icon
-              class="mr-2"
-              @click="search_customers"
-            >mdi-magnify</v-icon>
-            <v-icon
-              @click="new_customer"
-            >mdi-plus</v-icon>
-          </template>
-        </v-text-field>
-      </template>
-      <v-list v-if="customers.length" dense>
-        <v-list-item
-          v-for="(customer, index) in customers"
-          :key="index"
-          @click="select_customer(customer)"
-        >
+      <template v-slot:item="data">
+        <template>
           <v-list-item-content>
             <v-list-item-title
               class="primary--text subtitle-1"
-              v-html="customer.customer_name"
+              v-html="data.item.customer_name"
             ></v-list-item-title>
             <v-list-item-subtitle
-              v-if="customer.customer_name != customer.name"
-              v-html="`ID: ${customer.name}`"
+              v-if="data.item.customer_name != data.item.name"
+              v-html="`ID: ${data.item.name}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle v-if="customer.tax_id"
-              v-html="`TAX ID: ${customer.tax_id}`"
+            <v-list-item-subtitle
+              v-if="data.item.tax_id"
+              v-html="`TAX ID: ${data.item.tax_id}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle v-if="customer.email_id"
-              v-html="`Email: ${customer.email_id}`"
+            <v-list-item-subtitle
+              v-if="data.item.email_id"
+              v-html="`Email: ${data.item.email_id}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle v-if="customer.mobile_no"
-              v-html="`Mobile No: ${customer.mobile_no}`"
+            <v-list-item-subtitle
+              v-if="data.item.mobile_no"
+              v-html="`Mobile No: ${data.item.mobile_no}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle v-if="customer.primary_address"
-              v-html="`Primary Address: ${customer.primary_address}`"
+            <v-list-item-subtitle
+              v-if="data.item.primary_address"
+              v-html="`Primary Address: ${data.item.primary_address}`"
             ></v-list-item-subtitle>
           </v-list-item-content>
-        </v-list-item>
-      </v-list>
-    </v-menu>
+        </template>
+      </template>
+    </v-autocomplete>
     <div class="mb-8">
       <UpdateCustomer></UpdateCustomer>
     </div>
@@ -82,16 +68,13 @@
 <script>
 import { evntBus } from '../../bus';
 import UpdateCustomer from './UpdateCustomer.vue';
-
 export default {
   data: () => ({
     pos_profile: '',
     customers: [],
     customer: '',
-    searchQuery: '',
     readonly: false,
     customer_info: {},
-    menu: false,
   }),
 
   components: {
@@ -99,50 +82,30 @@ export default {
   },
 
   methods: {
-    search_customers(event) {
-      event.stopPropagation();
-      if (this.searchQuery.length < 3) {
-        console.warn("Please enter at least 3 characters to search.");
+    get_customer_names() {
+      const vm = this;
+      if (this.customers.length > 0) {
         return;
       }
-      console.log("Searching customers with query:", this.searchQuery);
-      const vm = this;
+      if (vm.pos_profile.posa_local_storage && localStorage.customer_storage) {
+        vm.customers = JSON.parse(localStorage.getItem('customer_storage'));
+      }
       frappe.call({
-        method: 'posawesome.posawesome.api.posapp.search_customers',
+        method: 'posawesome.posawesome.api.posapp.get_customer_names',
         args: {
-          query: this.searchQuery,
           pos_profile: this.pos_profile.pos_profile,
         },
         callback: function (r) {
           if (r.message) {
             vm.customers = r.message;
-            vm.menu = true; // Open the menu when search results are available
-            console.log("Search results:", vm.customers);
-          }
-        },
-      });
-    },
-    select_customer(customer) {
-      this.customer = customer.name;
-      this.searchQuery = customer.customer_name;
-      this.customers = [];
-      this.menu = false; // Close the menu on selection
-      this.fetch_customer_details(customer.name);
-    },
-    fetch_customer_details(customer_id) {
-      if (!customer_id) {
-        console.error("Customer ID is undefined");
-        return;
-      }
-      const vm = this;
-      frappe.call({
-        method: 'posawesome.posawesome.api.posapp.get_customer_details',
-        args: {
-          customer_id: customer_id,
-        },
-        callback: function (r) {
-          if (r.message) {
-            vm.customer_info = r.message;
+            console.info('loadCustomers');
+            if (vm.pos_profile.posa_local_storage) {
+              localStorage.setItem('customer_storage', '');
+              localStorage.setItem(
+                'customer_storage',
+                JSON.stringify(r.message)
+              );
+            }
           }
         },
       });
@@ -150,23 +113,40 @@ export default {
     new_customer() {
       evntBus.$emit('open_update_customer', null);
     },
-    handleEditIconClick(event) {
-      event.stopPropagation();
-      this.open_edit_customer();
-    },
-    open_edit_customer() {
+    edit_customer() {
       evntBus.$emit('open_update_customer', this.customer_info);
     },
+    customFilter(item, queryText, itemText) {
+      const textOne = item.customer_name
+        ? item.customer_name.toLowerCase()
+        : '';
+      const textTwo = item.tax_id ? item.tax_id.toLowerCase() : '';
+      const textThree = item.email_id ? item.email_id.toLowerCase() : '';
+      const textFour = item.mobile_no ? item.mobile_no.toLowerCase() : '';
+      const textFifth = item.name.toLowerCase();
+      const searchText = queryText.toLowerCase();
+
+      return (
+        textOne.indexOf(searchText) > -1 ||
+        textTwo.indexOf(searchText) > -1 ||
+        textThree.indexOf(searchText) > -1 ||
+        textFour.indexOf(searchText) > -1 ||
+        textFifth.indexOf(searchText) > -1
+      );
+    },
   },
+
+  computed: {},
 
   created: function () {
     this.$nextTick(function () {
       evntBus.$on('register_pos_profile', (pos_profile) => {
         this.pos_profile = pos_profile;
-        console.log("Registered POS profile:", pos_profile);
+        this.get_customer_names();
       });
       evntBus.$on('payments_register_pos_profile', (pos_profile) => {
         this.pos_profile = pos_profile;
+        this.get_customer_names();
       });
       evntBus.$on('set_customer', (customer) => {
         this.customer = customer;
@@ -181,12 +161,13 @@ export default {
         this.customer_info = data;
       });
       evntBus.$on('fetch_customer_details', () => {
+        this.get_customer_names();
       });
     });
   },
 
   watch: {
-    customer(newVal) {
+    customer() {
       evntBus.$emit('update_customer', this.customer);
     },
   },
