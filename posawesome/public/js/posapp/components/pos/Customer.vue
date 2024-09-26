@@ -26,23 +26,27 @@
           <v-list-item-content>
             <v-list-item-title
               class="primary--text subtitle-1"
-              v-html="customer.customer_name"
+              v-html="data.item.customer_name"
             ></v-list-item-title>
             <v-list-item-subtitle
-              v-if="customer.customer_name != customer.name"
-              v-html="`ID: ${customer.name}`"
+              v-if="data.item.customer_name != data.item.name"
+              v-html="`ID: ${data.item.name}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle v-if="customer.tax_id"
-              v-html="`TAX ID: ${customer.tax_id}`"
+            <v-list-item-subtitle
+              v-if="data.item.tax_id"
+              v-html="`TAX ID: ${data.item.tax_id}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle v-if="customer.email_id"
-              v-html="`Email: ${customer.email_id}`"
+            <v-list-item-subtitle
+              v-if="data.item.email_id"
+              v-html="`Email: ${data.item.email_id}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle v-if="customer.mobile_no"
-              v-html="`Mobile No: ${customer.mobile_no}`"
+            <v-list-item-subtitle
+              v-if="data.item.mobile_no"
+              v-html="`Mobile No: ${data.item.mobile_no}`"
             ></v-list-item-subtitle>
-            <v-list-item-subtitle v-if="customer.primary_address"
-              v-html="`Primary Address: ${customer.primary_address}`"
+            <v-list-item-subtitle
+              v-if="data.item.primary_address"
+              v-html="`Primary Address: ${data.item.primary_address}`"
             ></v-list-item-subtitle>
           </v-list-item-content>
         </template>
@@ -54,13 +58,6 @@
   </div>
 </template>
 
-<style scoped>
-.v-menu__content {
-  max-height: 500px !important;
-  overflow-y: auto !important;
-}
-</style>
-
 <script>
 import { evntBus } from '../../bus';
 import UpdateCustomer from './UpdateCustomer.vue';
@@ -69,7 +66,6 @@ export default {
     pos_profile: '',
     customers: [],
     customer: '',
-    searchQuery: '',
     readonly: false,
     customer_info: {},
   }),
@@ -139,10 +135,11 @@ export default {
     this.$nextTick(function () {
       evntBus.$on('register_pos_profile', (pos_profile) => {
         this.pos_profile = pos_profile;
-        console.log("Registered POS profile:", pos_profile);
+        this.get_customer_names();
       });
       evntBus.$on('payments_register_pos_profile', (pos_profile) => {
         this.pos_profile = pos_profile;
+        this.get_customer_names();
       });
       evntBus.$on('set_customer', (customer) => {
         this.customer = customer;
@@ -157,6 +154,7 @@ export default {
         this.customer_info = data;
       });
       evntBus.$on('fetch_customer_details', () => {
+        this.get_customer_names();
       });
     });
   },
