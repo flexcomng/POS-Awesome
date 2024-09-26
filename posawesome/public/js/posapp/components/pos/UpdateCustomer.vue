@@ -236,6 +236,9 @@ export default {
             data.forEach((el) => {
               vm.groups.push(el.name);
             });
+            if (vm.groups.includes('Individual')) {
+              vm.group = 'Individual';
+            }
           }
         });
     },
@@ -254,6 +257,9 @@ export default {
             data.forEach((el) => {
               vm.territorys.push(el.name);
             });
+            if (vm.territorys.includes('Nigeria')) {
+              vm.territory = 'Nigeria';
+            }
           }
         });
     },
