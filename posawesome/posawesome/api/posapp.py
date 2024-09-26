@@ -6,8 +6,9 @@ from __future__ import unicode_literals
 import json, requests
 import frappe
 import time
+from datetime import timedelta
 from frappe.utils.background_jobs import enqueue
-from frappe.utils import format_datetime
+from frappe.utils import format_datetime, get_datetime
 from frappe.utils import nowdate, flt, cstr, getdate
 from frappe import _
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import get_bank_cash_account
@@ -2053,4 +2054,206 @@ def fetch_item_price():
 
     except requests.RequestException as e:
         frappe.log_error(message=f"Error fetching item prices: {str(e)}", title="fetch_item_price Error")
+        return None
+
+
+def modify_first_stock_entry_data(se_data):
+    if se_data['outgoing_stock_entry']:
+        original_from_warehouse = 'Goods in Transit - S'
+    else:
+        original_from_warehouse = se_data['from_warehouse']
+
+    se_data['name'] = None
+    se_data['outgoing_stock_entry'] = None
+    se_data['use_custom_autoname'] = 1
+    se_data['add_to_transit'] = None
+
+    se_data['stock_entry_type'] = "Material Receipt"
+    se_data['set_posting_time'] = 1
+    se_data['original_doc'] = se_data['name']
+    se_data['docstatus'] = 0
+    
+    se_data['from_warehouse'] = None
+    se_data['amended_from'] = None
+
+    for item in se_data.get('items', []):
+        item['s_warehouse'] = ''
+        item['t_warehouse'] = original_from_warehouse
+        item['against_stock_entry'] = None
+        item['ste_detail'] = None
+
+    return se_data
+
+
+def adjust_stock_entry_timing(se_data):
+    se_data['set_posting_time'] = 1
+    posting_datetime = get_datetime(f"{se_data['posting_date']} {se_data['posting_time']}")
+    adjusted_datetime = posting_datetime + timedelta(minutes=1)
+    se_data['posting_date'] = adjusted_datetime.strftime('%Y-%m-%d')
+    se_data['posting_time'] = adjusted_datetime.strftime('%H:%M:%S')
+    se_data['original_doc'] = se_data['name']
+    se_data['docstatus'] = 0
+    
+    if se_data['add_to_transit'] == 1:
+        se_data['stock_entry_type'] = "Material Issue"
+
+    original_t_warehouse = None
+    if se_data['outgoing_stock_entry']:
+        original_t_warehouse = 'Goods in Transit - S'
+    elif se_data['add_to_transit'] == 1:
+        original_t_warehouse = se_data.get('from_warehouse')  # Ensuring original_t_warehouse is defined
+    else:
+        original_t_warehouse = se_data.get('to_warehouse')  # Ensuring original_t_warehouse is defined
+
+    se_data['outgoing_stock_entry'] = None
+    se_data['add_to_transit'] = None
+
+    for item in se_data.get('items', []):
+        item['s_warehouse'] = original_t_warehouse
+        if se_data['add_to_transit'] != 1:
+            item['t_warehouse'] = se_data.get('to_warehouse')
+        item['against_stock_entry'] = None
+        item['ste_detail'] = None
+        item['material_request'] = None
+        item['material_request_item'] = None
+
+
+    return se_data
+
+
+@frappe.whitelist()
+def sync_stock(batch_size=100, page_number=1):
+    try:
+        # Get configuration values
+        base_url, api_key, api_secret = get_hq_config()
+        headers = get_hq_headers(api_key, api_secret)
+        
+        company = frappe.get_cached_value('Global Defaults', None, 'default_company')
+        warehouse = frappe.get_cached_value('Branch Control Center', None, 'default_warehouse')
+
+        get_all_endpoint = f"{base_url}/api/method/branchsync.api.api.get_all"
+        get_all_data = {
+            "doctype": "Stock Entry",
+            "fields": ["*"],
+            "filters": {'docstatus': 1},
+            "limit_page_length": batch_size,
+            "limit_start": (page_number - 1) * batch_size
+        }
+
+        # Fetch stock entry names
+        get_all_response = requests.post(get_all_endpoint, headers=headers, json=get_all_data)
+
+        if get_all_response.status_code == 200:
+            stock_entry_names = get_all_response.json().get('message', [])
+            
+            # Check the number of records and return a "volume_too_high" if needed
+            if len(stock_entry_names) > 1000:  # Threshold can be adjusted as needed
+                return {
+                    "status": "volume_too_high",
+                    "message": "Volume exceeds the maximum limit for a quick update."
+                }
+
+            for stock_entry_name in stock_entry_names:
+                # Process only relevant stock entries
+                if warehouse == stock_entry_name['from_warehouse'] or warehouse == stock_entry_name['to_warehouse']:
+                    get_doc_endpoint = f"{base_url}/api/method/branchsync.api.api.get_doc"
+                    get_doc_data = {
+                        "doctype": "Stock Entry",
+                        "name": stock_entry_name['name']
+                    }
+                    
+                    get_doc_response = requests.post(get_doc_endpoint, headers=headers, json=get_doc_data)
+
+                    if get_doc_response.status_code == 200:
+                        stock_entry_data = get_doc_response.json().get('message', {})
+                        if not frappe.db.exists('Stock Entry', {'original_doc': stock_entry_data.get('name')}):
+                            if not frappe.db.exists('Stock Entry', {'name': stock_entry_data.get('name')}):
+                                create_stock_entry(stock_entry_data)
+                    else:
+                        frappe.log_error(
+                            message=f"Failed to fetch full stock entry data for {stock_entry_name['name']}. Response: {get_doc_response.text}",
+                            title="sync_stock Error"
+                        )
+        else:
+            frappe.log_error(
+                message=f"Error fetching stock entry names. Status: {get_all_response.status_code}, Response: {get_all_response.text}",
+                title="sync_stock Error"
+            )
+            return {"status": "error"}
+
+        # If processing reaches here, it is considered completed
+        return {"status": "completed", "message": "Stock sync completed successfully."}
+
+    except Exception as e:
+        frappe.log_error(
+            message=str(e),
+            title="Exception in sync_stock"
+        )
+        return {"status": "error", "message": str(e)}
+
+
+@frappe.whitelist()
+def create_stock_entry(se_data_json):
+    se_data = frappe.parse_json(se_data_json)
+    
+    first_se = None
+
+    if se_data.get('stock_entry_type') == "Material Transfer" and se_data.get('add_to_transit') != 1:
+        first_se_data = modify_first_stock_entry_data(se_data.copy())
+        first_se = create_and_submit_stock_entry(first_se_data, suffix="_1", use_custom_autoname=True)
+
+    second_se_data = adjust_stock_entry_timing(se_data)
+    second_se = create_and_submit_stock_entry(second_se_data, suffix="_2", use_custom_autoname=False, is_remote=True)
+
+    return {
+        "first_stock_entry": first_se.name if first_se else None,
+        "second_stock_entry": second_se.name if second_se else None
+    }
+
+
+@frappe.whitelist()
+def create_and_submit_stock_entry(se_data, suffix="", use_custom_autoname=False, is_remote=False, should_cancel=False):
+    try:
+        doc_type = se_data.pop('doctype', 'Stock Entry')
+        se = frappe.get_doc(dict(doctype=doc_type, **se_data))
+        se.use_custom_autoname = 1 if use_custom_autoname else 0
+        se.is_remote = 1 if is_remote else 0
+
+        if 'stock_entry_type' in se_data and se_data['stock_entry_type'] == 'Material Receipt':
+            se_data.pop('name', None)
+
+        if 'outgoing_stock_entry' in se_data and se_data['stock_entry_type'] == 'Material Transfer':
+            se_data.pop('outgoing_stock_entry', None)
+
+        se.insert(ignore_permissions=True, ignore_mandatory=True)
+        se.submit()
+        frappe.db.commit()
+
+        if should_cancel and se.docstatus == 1:
+            se.cancel()
+            frappe.db.commit()
+
+        new_entry = frappe.get_doc('Stock Entry', se.name)
+        if not new_entry.use_custom_autoname or new_entry.stock_entry_type != "Material Receipt":
+            desired_name = se_data.get("name", new_entry.name)
+            frappe.db.sql("""UPDATE `tabStock Entry` SET name=%s WHERE name=%s""", (desired_name, new_entry.name))
+            frappe.db.commit()
+
+            child_table_name = 'tabStock Entry Detail'
+            new_parent_name = desired_name
+            old_parent_name = new_entry.name
+
+            frappe.db.sql(f"""
+                UPDATE `{child_table_name}`
+                SET parent = %s
+                WHERE parent = %s
+            """, (new_parent_name, old_parent_name))
+
+        return new_entry
+
+    except Exception as e:
+        frappe.log_error(
+            message=f"Error creating and submitting stock entry: {str(e)}",
+            title="create_and_submit_stock_entry Error"
+        )
         return None

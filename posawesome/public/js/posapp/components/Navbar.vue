@@ -139,6 +139,18 @@
               <v-list-item-title v-text="positem.text"></v-list-item-title>
             </v-list-item-content>
           </v-list-item>
+          <v-list-item
+            v-for="positem in positem2"
+            :key="positem.text"
+            @click="startStockUpdate"
+          >
+            <v-list-item-icon>
+              <v-icon v-text="positem.icon"></v-icon>
+            </v-list-item-icon>
+            <v-list-item-content>
+              <v-list-item-title v-text="positem.text"></v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
         </v-list-item-group>
       </v-list>
     </v-navigation-drawer>
@@ -169,6 +181,7 @@ export default {
       item: 0,
       items: [{ text: 'POS', icon: 'mdi-network-pos' }],
       positems: [{ text: 'Price Update', icon: 'mdi-cash' }],
+      positem2: [{ text: 'Stock Update', icon: 'mdi-database-arrow-up' }],
       page: '',
       fav: true,
       menu: false,
@@ -292,7 +305,35 @@ export default {
         this.snackText = 'Error during price update.';
       }
     },
+    // Start Price List Update
+    async startStockUpdate() {
+      this.snack = true;
+      this.snackColor = 'info';
+      this.snackText = 'Stock update in progress... this could take a few minutes.';
+      
+      try {
+        // Call the backend function to update stock
+        const response = await frappe.call({
+          method: 'posawesome.posawesome.api.posapp.sync_stock',
+        });
 
+        // Handle the response status
+        if (response.message.status === 'completed') {
+          this.snackColor = 'success';
+          this.snackText = 'Stock update completed successfully!';
+        } else if (response.message.status === 'volume_too_high') {
+          this.snackColor = 'warning';
+          this.snackText = 'Volume exceeds maximum for quick update. Please update stock from the Branch Control Center.';
+        } else {
+          this.snackColor = 'error';
+          this.snackText = 'Error updating stock!';
+        }
+      } catch (error) {
+        console.error('Error during stock update:', error);
+        this.snackColor = 'error';
+        this.snackText = 'Error during stock update.';
+      }
+    },
     showSnackbar(text, color) {
       this.snackText = text;
       this.snackColor = color;
