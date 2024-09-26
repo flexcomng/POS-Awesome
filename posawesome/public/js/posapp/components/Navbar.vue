@@ -95,7 +95,7 @@
       :mini-variant.sync="mini"
       app
       class="primary margen-top"
-      width="170"
+      width="190"
     >
       <v-list dark>
         <v-list-item class="px-2">
