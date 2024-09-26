@@ -23,7 +23,10 @@
 
       <v-spacer></v-spacer>
       <v-btn style="cursor: unset" text color="primary">
-        <span right>{{ pos_profile.name }}</span>
+        <span right>User: {{ user_full_name }}</span>
+        </v-btn>
+        <v-btn style="cursor: unset" text color="primary">
+        <span right>POS Profile: {{ pos_profile.name }}</span>
       </v-btn>
       <div class="text-center">
         <v-menu offset-y>
@@ -164,9 +167,25 @@ export default {
       freezeTitle: '',
       freezeMsg: '',
       last_invoice: '',
+      user_full_name: ''
     };
   },
   methods: {
+    async fetchUserFullName() {
+      try {
+        const response = await frappe.call({
+          method: 'posawesome.posawesome.api.posapp.get_user_full_name',
+          args: {
+            user: frappe.session.user
+          }
+        });
+        if (response.message) {
+          this.user_full_name = response.message;
+        }
+      } catch (error) {
+        console.error('Error fetching user full name:', error);
+      }
+    },
     changePage(key) {
       this.$emit('changePage', key);
     },
@@ -229,6 +248,7 @@ export default {
     },
   },
   created: function () {
+    this.fetchUserFullName();
     this.$nextTick(function () {
       evntBus.$on('show_mesage', (data) => {
         this.show_mesage(data);

@@ -412,40 +412,83 @@ def get_customer_group_condition(pos_profile):
 
 
 @frappe.whitelist()
-def get_customer_names(pos_profile, limit=100, search=None):
+def get_customer_names(pos_profile):
     _pos_profile = json.loads(pos_profile)
     ttl = _pos_profile.get("posa_server_cache_duration")
     if ttl:
         ttl = int(ttl) * 60
 
     @redis_cache(ttl=ttl or 1800)
-    def __get_customer_names(pos_profile, limit, search):
-        return _get_customer_names(pos_profile, limit, search)
+    def __get_customer_names(pos_profile):
+        return _get_customer_names(pos_profile)
 
-    def _get_customer_names(pos_profile, limit, search):
+    def _get_customer_names(pos_profile):
         pos_profile = json.loads(pos_profile)
-        condition = get_customer_group_condition(pos_profile)
-        values = []
-        if search:
-            condition += " AND (customer_name LIKE %s OR tax_id LIKE %s OR email_id LIKE %s OR mobile_no LIKE %s)"
-            search_pattern = f"%{search}%"
-            values.extend([search_pattern] * 4)
-
-        query = f"""
-            SELECT name, mobile_no, email_id, tax_id, customer_name, primary_address
+        condition = ""
+        condition += get_customer_group_condition(pos_profile)
+        customers = frappe.db.sql(
+            """
+            SELECT name, customer_name
             FROM `tabCustomer`
-            WHERE {condition}
-            ORDER BY name
-            LIMIT {int(limit)}
-        """
-
-        customers = frappe.db.sql(query, values, as_dict=1)
+            WHERE {0}
+            ORDER by name
+            """.format(
+                condition
+            ),
+            as_dict=1,
+        )
         return customers
 
     if _pos_profile.get("posa_use_server_cache"):
-        return __get_customer_names(pos_profile, limit, search)
+        return __get_customer_names(pos_profile)
     else:
-        return _get_customer_names(pos_profile, limit, search)
+        return _get_customer_names(pos_profile)
+
+
+@frappe.whitelist()
+def get_customer_details(customer_id):
+    customer = frappe.db.sql(
+        """
+        SELECT c.name, c.mobile_no, c.email_id, c.tax_id, c.customer_name, 
+               c.customer_group, c.territory, c.primary_address, 
+               c.loyalty_program, SUM(lp.loyalty_points) as loyalty_points
+        FROM `tabCustomer` c
+        LEFT JOIN `tabLoyalty Point Entry` lp ON c.name = lp.customer
+        WHERE c.name = %s
+        GROUP BY c.name
+        """,
+        customer_id,
+        as_dict=1,
+    )
+    return customer[0] if customer else {}
+
+@frappe.whitelist()
+def search_customers(query, pos_profile):
+    pos_profile = json.loads(pos_profile)
+    condition = ""
+    if query:
+        condition = """
+            (c.customer_name LIKE %s OR
+            c.email_id LIKE %s OR
+            c.mobile_no LIKE %s)
+        """
+        query = "%" + query + "%"
+        customers = frappe.db.sql(
+            """
+            SELECT c.name, c.mobile_no, c.email_id, c.territory, c.customer_group, 
+                   c.tax_id, c.customer_name, c.primary_address, c.loyalty_program, 
+                   SUM(lp.loyalty_points) as loyalty_points
+            FROM `tabCustomer` c
+            LEFT JOIN `tabLoyalty Point Entry` lp ON c.name = lp.customer
+            WHERE {0}
+            GROUP BY c.name
+            """.format(condition),
+            (query, query, query),
+            as_dict=1,
+        )
+    else:
+        customers = []
+    return customers
 
 
 
@@ -1797,10 +1840,36 @@ def search_serial_or_batch_or_barcode_number(search_value, search_serial_no):
     return {}
 
 
+@frappe.whitelist()
+def get_item_by_barcode(barcode):
+    item = frappe.get_all('Item', filters={'barcode': barcode}, fields=['item_code', 'item_name', 'description', 'item_group', 'brand', 'stock_uom', 'image', 'has_variants'])
+    if not item:
+        item = frappe.get_all('Item', filters={'item_code': barcode}, fields=['item_code', 'item_name', 'description', 'item_group', 'brand', 'stock_uom', 'image', 'has_variants'])
+        if not item:
+            serial_no_data = frappe.get_all('Serial No', filters={'name': barcode}, fields=['item_code'])
+            if serial_no_data:
+                item_code = serial_no_data[0]['item_code']
+                item = frappe.get_all('Item', filters={'item_code': item_code}, fields=['item_code', 'item_name', 'description', 'item_group', 'brand', 'stock_uom', 'image', 'has_variants'])
+            else:
+                return None
+    
+    item = item[0]
+
+    bins = frappe.get_all('Bin', filters={'item_code': item['item_code']}, fields=['actual_qty'])
+    item['actual_qty'] = bins[0]['actual_qty'] if bins else 0
+
+    serial_no_data = frappe.get_all('Serial No', filters={'item_code': item['item_code']}, fields=['name as serial_no'])
+    batch_no_data = frappe.get_all('Batch', filters={'item': item['item_code']}, fields=['name as batch_no'])
+    item['serial_no_data'] = serial_no_data
+    item['batch_no_data'] = batch_no_data
+    
+    return item
+    
+
 def get_seearch_items_conditions(item_code, serial_no, batch_no, barcode):
     if serial_no or batch_no or barcode:
         return " and name = {0}".format(frappe.db.escape(item_code))
-    return """ and (name like {item_code} or item_name like {item_code})""".format(
+    return """ and (name like {item_code} or item_name like {item_code} or custom_style_code like {item_code})""".format(
         item_code=frappe.db.escape("%" + item_code + "%")
     )
 
@@ -1824,3 +1893,8 @@ def get_sales_invoice_child_table(sales_invoice, sales_invoice_item):
         "Sales Invoice Item", {"parent": parent_doc.name, "name": sales_invoice_item}
     )
     return child_doc
+
+@frappe.whitelist()
+def get_user_full_name(user):
+    user_doc = frappe.get_doc("User", user)
+    return user_doc.full_name
