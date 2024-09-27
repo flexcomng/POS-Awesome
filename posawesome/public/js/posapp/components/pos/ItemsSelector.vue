@@ -29,6 +29,19 @@
             ref="debounce_search"
           ></v-text-field>
         </v-col>
+        <v-col class="pb-0 mb-2">
+          <v-text-field
+            dense
+            outlined
+            color="primary"
+            :label="frappe._('Scan Barcode')"
+            background-color="white"
+            hide-details
+            v-model="barcode"
+            @keydown.enter="handle_barcode_scan"
+            ref="barcode_input"
+          ></v-text-field>
+        </v-col>
         <v-col cols="3" class="pb-0 mb-2" v-if="pos_profile.posa_input_qty">
           <v-text-field
             dense
@@ -183,6 +196,10 @@ export default {
     custom_style_code: '',
     search: "",
     first_search: "",
+    barcode: "",
+    lastBarcode: "",
+    lastScanTime: 0,
+    scanInterval: 500, // 500 ms interval to avoid duplicate scans
     itemsPerPage: 1000,
     offersCount: 0,
     appliedOffersCount: 0,
@@ -403,6 +420,50 @@ export default {
         vm.get_items();
       } else {
         vm.enter_event();
+      }
+    },
+    handle_barcode_scan() {
+      const vm = this;
+      const barcode = vm.barcode.trim();
+      const currentTime = new Date().getTime();
+
+      if (barcode && (barcode !== vm.lastBarcode || currentTime - vm.lastScanTime > vm.scanInterval)) {
+        vm.loading = true;
+        vm.lastBarcode = barcode;
+        vm.lastScanTime = currentTime;
+
+        frappe.call({
+          method: "posawesome.posawesome.api.posapp.get_item_by_barcode",
+          args: {
+            barcode: barcode,
+          },
+          callback: function (r) {
+            if (r.message) {
+              vm.add_item(r.message);
+            } else {
+              evntBus.$emit("show_mesage", {
+                text: `No Item has this barcode "${barcode}"`,
+                color: "error",
+              });
+              frappe.utils.play_sound("error");
+            }
+            vm.loading = false;
+            vm.barcode = "";
+            vm.$refs.barcode_input.focus();
+          },
+          error: function () {
+            evntBus.$emit("show_mesage", {
+              text: `Failed to fetch item for barcode "${barcode}"`,
+              color: "error",
+            });
+            frappe.utils.play_sound("error");
+            vm.loading = false;
+            vm.barcode = "";
+            vm.$refs.barcode_input.focus();
+          },
+        });
+      } else {
+        vm.barcode = "";
       }
     },
     get_item_qty(first_search) {
