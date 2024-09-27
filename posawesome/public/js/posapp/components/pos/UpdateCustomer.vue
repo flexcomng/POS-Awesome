@@ -236,6 +236,9 @@ export default {
             data.forEach((el) => {
               vm.groups.push(el.name);
             });
+            if (vm.groups.includes('Individual')) {
+              vm.group = 'Individual';
+            }
           }
         });
     },
@@ -254,6 +257,9 @@ export default {
             data.forEach((el) => {
               vm.territorys.push(el.name);
             });
+            if (vm.territorys.includes('Nigeria')) {
+              vm.territory = 'Nigeria';
+            }
           }
         });
     },
@@ -344,7 +350,7 @@ export default {
               frappe.utils.play_sound('submit');
               evntBus.$emit('add_customer_to_list', args);
               evntBus.$emit('set_customer', r.message.name);
-              evntBus.$emit('fetch_customer_details');
+              evntBus.$emit('set_customer_info_to_edit', args);
               this.close_dialog();
             } else {
               frappe.utils.play_sound('error');
@@ -386,7 +392,6 @@ export default {
     this.getCustomerGroups();
     this.getCustomerTerritorys();
     this.getGenders();
-    // set default values for customer group and territory from user defaults
     this.group = frappe.defaults.get_user_default('Customer Group');
     this.territory = frappe.defaults.get_user_default('Territory');
   },
