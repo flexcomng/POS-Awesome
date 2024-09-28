@@ -12,7 +12,6 @@ def login(usr=None, pwd=None):
     try:
         login_manager = LoginManager()
         login_manager.authenticate(usr, pwd)
-        login_manager.post_login()
         authenticated_user = login_manager.user
         user = frappe.get_doc("User", authenticated_user)
         
