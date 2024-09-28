@@ -1850,3 +1850,8 @@ def get_sales_invoice_child_table(sales_invoice, sales_invoice_item):
         "Sales Invoice Item", {"parent": parent_doc.name, "name": sales_invoice_item}
     )
     return child_doc
+
+@frappe.whitelist()
+def get_user_full_name(user):
+    user_doc = frappe.get_doc("User", user)
+    return user_doc.full_name
