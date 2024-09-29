@@ -346,15 +346,35 @@ export default {
 
       return items_headers;
     },
+    // add_item(item) {
+    //   item = { ...item };
+    //   if (item.has_variants) {
+    //     evntBus.$emit("open_variants_model", item, this.items);
+    //   } else {
+    //     if (!item.qty || item.qty === 1) {
+    //       item.qty = Math.abs(this.qty);
+    //     }
+    //     evntBus.$emit("add_item", item);
+    //     this.qty = 1;
+    //   }
+    // },
     add_item(item) {
       item = { ...item };
+
+      // If item has variants, handle it differently
       if (item.has_variants) {
         evntBus.$emit("open_variants_model", item, this.items);
       } else {
-        if (!item.qty || item.qty === 1) {
-          item.qty = Math.abs(this.qty);
-        }
+        // Set quantity to the user-inputted quantity or 1 if none is provided
+        item.qty = this.qty > 0 ? this.qty : 1; 
+
+        // Ensure the rate is set properly; this should be item’s price (or default rate if not already set)
+        item.rate = item.rate || item.default_rate || 0;
+
+        // Emit the event to add the item with proper quantity and rate
         evntBus.$emit("add_item", item);
+
+        // Reset qty for the next item to default (1)
         this.qty = 1;
       }
     },
