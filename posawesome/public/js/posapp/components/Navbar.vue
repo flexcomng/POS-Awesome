@@ -1,5 +1,6 @@
 <template>
   <nav>
+    <AirtimeDialog :isVisible="isDialogVisible" @close="closeDialog" />
     <v-app-bar app height="40" class="elevation-2">
       <v-app-bar-nav-icon
         @click.stop="drawer = !drawer"
@@ -123,6 +124,18 @@
               <v-list-item-title v-text="item.text"></v-list-item-title>
             </v-list-item-content>
           </v-list-item>
+          <v-list-item
+            v-for="positem in positem2"
+            :key="positem.text"
+            @click="startArtimeSales"
+          >
+            <v-list-item-icon>
+              <v-icon v-text="positem.icon"></v-icon>
+            </v-list-item-icon>
+            <v-list-item-content>
+              <v-list-item-title v-text="positem.text"></v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
         </v-list-item-group>
       </v-list>
     </v-navigation-drawer>
@@ -142,15 +155,19 @@
 
 <script>
 import { evntBus } from '../bus';
+import AirtimeDialog from '../components/pos/AirtimeDialog.vue';
 
 export default {
+  components: { AirtimeDialog },
   // components: {MyPopup},
   data() {
     return {
+      isDialogVisible: false, // Control the dialog visibility
       drawer: false,
       mini: true,
       item: 0,
       items: [{ text: 'POS', icon: 'mdi-network-pos' }],
+      positem2: [{ text: 'Airtime', icon: 'mdi-cellphone-basic' }],
       page: '',
       fav: true,
       menu: false,
@@ -245,6 +262,14 @@ export default {
         },
         true
       );
+    },
+    startArtimeSales() {
+      // Show the dialog when the button is clicked
+      this.isDialogVisible = true;
+    },
+    closeDialog() {
+      // Close the dialog
+      this.isDialogVisible = false;
     },
   },
   created: function () {
