@@ -412,17 +412,17 @@ def get_customer_group_condition(pos_profile):
 
 
 @frappe.whitelist()
-def get_customer_names(pos_profile, limit=100, search=None):
+def get_customer_names(pos_profile, search=None):
     _pos_profile = json.loads(pos_profile)
     ttl = _pos_profile.get("posa_server_cache_duration")
     if ttl:
         ttl = int(ttl) * 60
 
     @redis_cache(ttl=ttl or 1800)
-    def __get_customer_names(pos_profile, limit, search):
-        return _get_customer_names(pos_profile, limit, search)
+    def __get_customer_names(pos_profile, search):
+        return _get_customer_names(pos_profile, search)
 
-    def _get_customer_names(pos_profile, limit, search):
+    def _get_customer_names(pos_profile, search):
         pos_profile = json.loads(pos_profile)
         condition = get_customer_group_condition(pos_profile)
         values = []
@@ -436,16 +436,15 @@ def get_customer_names(pos_profile, limit=100, search=None):
             FROM `tabCustomer`
             WHERE {condition}
             ORDER BY name
-            LIMIT {int(limit)}
         """
 
         customers = frappe.db.sql(query, values, as_dict=1)
         return customers
 
     if _pos_profile.get("posa_use_server_cache"):
-        return __get_customer_names(pos_profile, limit, search)
+        return __get_customer_names(pos_profile, search)
     else:
-        return _get_customer_names(pos_profile, limit, search)
+        return _get_customer_names(pos_profile, search)
 
 
 
