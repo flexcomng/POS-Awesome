@@ -243,7 +243,7 @@
         this.isFetching = true; // Start loading state
         try {
           const response = await frappe.call({
-            method: 'frappe.client.get_list',
+            method: 'pricewise.api.api.get',
             args: {
               doctype: 'Network PIN',
               filters: {
@@ -256,6 +256,7 @@
   
           // Extract unique airtime values and sort them in ascending order
           const uniqueValues = [...new Set(response.message.map(item => item.value))];
+          console.log('Unique Values Returned', uniqueValues)
           this.airtimeValues = uniqueValues.sort((a, b) => a - b);
         } catch (error) {
           console.error('Error fetching airtime values:', error);
