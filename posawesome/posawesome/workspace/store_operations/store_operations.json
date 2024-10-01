@@ -1,11 +1,6 @@
 {
- "charts": [
-  {
-   "chart_name": "Daily Sales Summary",
-   "label": "Daily Sales Summary"
-  }
- ],
- "content": "[{\"id\":\"_X5U18ipTO\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Storefront Profile\",\"col\":12}},{\"id\":\"gxo6PQoShW\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Buttons\",\"col\":12}},{\"id\":\"JcKJHLBB6Q\",\"type\":\"chart\",\"data\":{\"chart_name\":\"Daily Sales Summary\",\"col\":12}}]",
+ "charts": [],
+ "content": "[{\"id\":\"_X5U18ipTO\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Storefront Profile\",\"col\":12}},{\"id\":\"hzITdLDX8s\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"nYK65er4Bu\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Store Operations</b></span>\",\"col\":12}},{\"id\":\"gxo6PQoShW\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Buttons\",\"col\":12}},{\"id\":\"qfD7RsSeHc\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"VN3YFxCawi\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Shifts\",\"col\":3}},{\"id\":\"Kbc6X5tef0\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Reports</b></span>\",\"col\":12}},{\"id\":\"EWVfLuodBI\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Buttons - Report\",\"col\":12}},{\"id\":\"wy95i0mXxh\",\"type\":\"spacer\",\"data\":{\"col\":12}},{\"id\":\"njykecgw7o\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Employee Self Service</b></span>\",\"col\":12}},{\"id\":\"yoYw-FmYAz\",\"type\":\"custom_block\",\"data\":{\"custom_block_name\":\"Buttons - ESS\",\"col\":12}},{\"id\":\"lL7KRN18kM\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Todays Sales\",\"col\":4}},{\"id\":\"YInOyRX7g3\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Outstanding Laybyes\",\"col\":4}},{\"id\":\"GELBFREOno\",\"type\":\"quick_list\",\"data\":{\"quick_list_name\":\"Returns Made Today\",\"col\":4}}]",
  "creation": "2024-05-11 13:10:34.711810",
  "custom_blocks": [
   {
@@ -15,6 +10,14 @@
   {
    "custom_block_name": "Buttons",
    "label": "Buttons"
+  },
+  {
+   "custom_block_name": "Buttons - Report",
+   "label": "Buttons - Report"
+  },
+  {
+   "custom_block_name": "Buttons - ESS",
+   "label": "Buttons - ESS"
   }
  ],
  "docstatus": 0,
@@ -26,7 +29,7 @@
  "is_hidden": 0,
  "label": "Store Operations",
  "links": [],
- "modified": "2024-05-14 10:07:16.888575",
+ "modified": "2024-10-01 10:59:35.688941",
  "modified_by": "Administrator",
  "module": "POSAwesome",
  "name": "Store Operations",
@@ -34,13 +37,37 @@
  "owner": "Administrator",
  "parent_page": "",
  "public": 1,
- "quick_lists": [],
+ "quick_lists": [
+  {
+   "document_type": "Lay-By Purchase",
+   "label": "Outstanding Laybyes",
+   "quick_list_filter": "[[\"Lay-By Purchase\",\"status\",\"!=\",\"Purchase Completed\",false],[\"Lay-By Purchase\",\"docstatus\",\"=\",\"1\",false],[\"Lay-By Purchase\",\"status\",\"!=\",\"Purchase Terminated\",false]]"
+  },
+  {
+   "document_type": "Sales Invoice",
+   "label": "Returns Made Today",
+   "quick_list_filter": "[[\"Sales Invoice\",\"posting_date\",\"Between\",null,false],[\"Sales Invoice\",\"status\",\"=\",\"Return\",false]]"
+  },
+  {
+   "document_type": "Sales Invoice",
+   "label": "Todays Sales",
+   "quick_list_filter": "[[\"Sales Invoice\",\"posting_date\",\"Timespan\",\"today\",false],[\"Sales Invoice\",\"docstatus\",\"=\",\"1\",false]]"
+  }
+ ],
  "roles": [
   {
    "role": "Sales User"
   }
  ],
  "sequence_id": 1.0,
- "shortcuts": [],
+ "shortcuts": [
+  {
+   "color": "Grey",
+   "doc_view": "List",
+   "label": "Open Shifts",
+   "link_to": "Open Shifts",
+   "type": "Report"
+  }
+ ],
  "title": "Store Operations"
 }
