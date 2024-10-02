@@ -372,9 +372,12 @@
             frappe.msgprint('Failed to create Sales Invoice. Please try again.');
         }
     },
-      printReceipt() {
+    printReceipt() {
         // Extract just the invoice number part from salesInvoiceRef
         const invoiceNumber = this.salesInvoiceRef.replace(/.*-SINV/, 'SINV');
+
+        // Format the PIN into groups of 4 digits
+        const formattedPin = this.selectedNetworkPin.pin.match(/.{1,4}/g).join(' ');
 
         const printContent = `
             <div style="font-size: 12px; text-align: center;">
@@ -384,7 +387,7 @@
                 <p><strong>${this.selectedCarrier}</strong> - ${this.formatCurrency(this.selectedAirtimeValue)} Pay as you Go</p>
                 <hr>
                 <!-- Make PIN larger and bolder -->
-                <p style="font-size: 20px; font-weight: bold; margin-top: 10px;"><strong>PIN:</strong> ${this.selectedNetworkPin.pin}</p>
+                <p style="font-size: 20px; font-weight: bold; margin-top: 10px;"><strong>PIN:</strong> ${formattedPin}</p>
                 <p><strong>Amount:</strong> ${this.formatCurrency(this.selectedAirtimeValue)}</p>
                 <p><strong>Serial:</strong> ${this.selectedNetworkPin.serial}</p>
                 <p><strong>Ref:</strong> ${invoiceNumber}</p>
@@ -403,7 +406,8 @@
         printWindow.document.write('</body></html>');
         printWindow.document.close();
         printWindow.print();
-     },
+    },
+
       async fetchNetworkPin(salesInvoice) {
         try {
           const response = await frappe.call({
