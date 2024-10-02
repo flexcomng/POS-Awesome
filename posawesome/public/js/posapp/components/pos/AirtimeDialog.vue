@@ -326,12 +326,15 @@
             customer: customer,
             branch: branch,
             is_pos: 1,
+            update_stock: 1,
+            set_warehouse: "Stores - PW",
             items: [
             {
                 item_code: item,
                 qty: qty,
                 rate: rate,
                 cost_center: cost_center,
+                warehouse: "Stores - PW",
             },
             ],
             payments: [
