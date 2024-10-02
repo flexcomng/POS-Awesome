@@ -256,7 +256,6 @@
   
           // Extract unique airtime values and sort them in ascending order
           const uniqueValues = [...new Set(response.message.map(item => item.value))];
-          console.log('Unique Values Returned', uniqueValues)
           this.airtimeValues = uniqueValues.sort((a, b) => a - b);
         } catch (error) {
           console.error('Error fetching airtime values:', error);
@@ -301,9 +300,12 @@
       },
       async processPurchase() {
         // Ensure pos_profile is available
-        if (!this.pos_profile || !this.pos_profile.customer) {
+        if (!this.pos_profile) {
             frappe.msgprint('POS Profile details are missing. Please ensure the data is loaded.');
             return;
+        } else if (!this.pos_profile.customer) {
+          frappe.msgprint('Default Customer missing in POS Profile. Please set default customer in POS Profile.');
+          return;        
         }
 
         // Construct the item code using the selected carrier and value
