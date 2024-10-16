@@ -2298,7 +2298,7 @@ def fetch_price_update():
 
 
 @frappe.whitelist()
-def sync_item_price():
+def update_item_prices():
     base_url, api_key, api_secret = get_hq_config()
     headers = get_hq_headers(api_key, api_secret)
     price_manager_data = fetch_price_update()
@@ -2310,63 +2310,77 @@ def sync_item_price():
     for price_data in price_manager_data:
         original_name = price_data.get('name')
 
-        if not frappe.db.exists("Price Manager", original_name):
-            doc_endpoint = f"{base_url}/api/method/branchsync.api.api.get_doc"
-            doc_data = {
-                "doctype": "Price Manager",
-                "name": original_name 
-            }
-            try:
-                response = requests.post(doc_endpoint, headers=headers, json=doc_data)
-                response.raise_for_status()
-            except requests.RequestException as e:
-                frappe.log_error(f"Error fetching Price Manager {original_name} from HQ: {str(e)}", 'Update Item Prices Error')
-                continue
+        # Check if the Price Manager document exists
+        if frappe.db.exists("Price Manager", original_name):
+            # Log and skip if Price Manager already exists
+            frappe.log_error(f"Price Manager {original_name} already exists. Skipping.", 'Duplicate Price Manager')
+            continue  # Skip this entry if it exists
 
-            if response.status_code == 200:
-                price_data = response.json().get('message', {})
-                if price_data:
-                    try:
-                        data = modify_naming_data(price_data)
-                        data.pop('doctype', None)
-                        data.pop('docstatus', None)
-                        price_data = data.pop('items', [])
+        # Fetch the full document data from HQ
+        doc_endpoint = f"{base_url}/api/method/branchsync.api.api.get_doc"
+        doc_data = {
+            "doctype": "Price Manager",
+            "name": original_name 
+        }
+        
+        try:
+            response = requests.post(doc_endpoint, headers=headers, json=doc_data)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            frappe.log_error(f"Error fetching Price Manager {original_name} from HQ: {str(e)}", 'Update Item Prices Error')
+            continue
 
-                        price_list = frappe.get_doc({
-                            'doctype': 'Price Manager',
-                            **data
-                        })
-                        for item in price_data:
-                            price_list.append('items', item)
+        if response.status_code == 200:
+            price_data = response.json().get('message', {})
+            if price_data:
+                try:
+                    # Modify naming data and prepare items for the Price Manager
+                    data = modify_naming_data(price_data)
+                    data.pop('doctype', None)
+                    data.pop('docstatus', None)
+                    price_items = data.pop('items', [])
 
-                        price_list.insert(ignore_permissions=True, ignore_mandatory=True)
-                        price_list.save()
+                    # Create a new Price Manager document
+                    price_list = frappe.get_doc({
+                        'doctype': 'Price Manager',
+                        **data
+                    })
 
-                        if price_list.name != data['name']:
-                            frappe.db.sql("""UPDATE `tabPrice Manager` SET name=%s WHERE name=%s""", (data['name'], price_list.name))
-                            frappe.db.commit()
+                    for item in price_items:
+                        price_list.append('items', item)
 
-                        child_table_name = 'tabPrice Details'
-                        new_parent_name = data['name']
-                        old_parent_name = price_list.name 
+                    price_list.insert(ignore_permissions=True, ignore_mandatory=True)
+                    price_list.save()
 
-                        frappe.db.sql(f"""
-                            UPDATE `{child_table_name}`
-                            SET parent = %s
-                            WHERE parent = %s
-                        """, (new_parent_name, old_parent_name))
+                    if price_list.name != data['name']:
+                        frappe.db.sql("""UPDATE `tabPrice Manager` SET name=%s WHERE name=%s""", (data['name'], price_list.name))
                         frappe.db.commit()
 
-                        try:
-                            new_list = frappe.get_doc('Price Manager', data['name'])
-                            new_list.submit()
-                            frappe.db.commit()
-                            return f"Price Manager {new_list.name} created and submitted successfully."
-                        except Exception as submit_error:
-                            frappe.log_error(f"Failed to submit Price Manager {new_list.name}: {str(submit_error)}", 'Price Manager Submission Error')
-                            return f"Failed to submit Price Manager: {str(submit_error)}"
-                    except Exception as process_error:
-                        frappe.log_error(f"Error processing Price Manager {original_name}: {str(process_error)}", 'Update Item Prices Processing Error')
-                else:
-                    frappe.log_error(f"No valid price data received for Price Manager {original_name}", 'Update Item Prices Error')
-                    continue
+                    # Update child table records for Price Details
+                    child_table_name = 'tabPrice Details'
+                    new_parent_name = data['name']
+                    old_parent_name = price_list.name 
+
+                    frappe.db.sql(f"""
+                        UPDATE `{child_table_name}`
+                        SET parent = %s
+                        WHERE parent = %s
+                    """, (new_parent_name, old_parent_name))
+                    frappe.db.commit()
+
+                    try:
+                        # Submit the Price Manager document
+                        new_list = frappe.get_doc('Price Manager', data['name'])
+                        new_list.submit()
+                        frappe.db.commit()
+                        return f"Price Manager {new_list.name} created and submitted successfully."
+                    except Exception as submit_error:
+                        frappe.log_error(f"Failed to submit Price Manager {new_list.name}: {str(submit_error)}", 'Price Manager Submission Error')
+                        return f"Failed to submit Price Manager: {str(submit_error)}"
+
+                except Exception as process_error:
+                    frappe.log_error(f"Error processing Price Manager {original_name}: {str(process_error)}", 'Update Item Prices Processing Error')
+            else:
+                frappe.log_error(f"No valid price data received for Price Manager {original_name}", 'Update Item Prices Error')
+                continue
+
