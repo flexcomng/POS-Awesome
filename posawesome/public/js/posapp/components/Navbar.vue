@@ -151,6 +151,18 @@
               <v-list-item-title v-text="positem.text"></v-list-item-title>
             </v-list-item-content>
           </v-list-item>
+          <v-list-item
+            v-for="positem in positem3"
+            :key="positem.text"
+            @click="startSalesUpdate"
+          >
+            <v-list-item-icon>
+              <v-icon v-text="positem.icon"></v-icon>
+            </v-list-item-icon>
+            <v-list-item-content>
+              <v-list-item-title v-text="positem.text"></v-list-item-title>
+            </v-list-item-content>
+          </v-list-item>
         </v-list-item-group>
       </v-list>
     </v-navigation-drawer>
@@ -182,6 +194,7 @@ export default {
       items: [{ text: 'POS', icon: 'mdi-network-pos' }],
       positems: [{ text: 'Price Update', icon: 'mdi-cash' }],
       positem2: [{ text: 'Stock Update', icon: 'mdi-database-arrow-up' }],
+      positem3: [{ text: 'Sync Sales', icon: 'mdi-cloud-sync' }],
       page: '',
       fav: true,
       menu: false,
@@ -332,6 +345,35 @@ export default {
         console.error('Error during stock update:', error);
         this.snackColor = 'error';
         this.snackText = 'Error during stock update.';
+      }
+    },
+    // Start Price List Update
+    async startSalesUpdate() {
+      this.snack = true;
+      this.snackColor = 'info';
+      this.snackText = 'Sales Invoice sync in progress... this could take a few minutes.';
+      
+      try {
+        // Call the backend function to update stock
+        const response = await frappe.call({
+          method: 'posawesome.posawesome.api.posapp.sync_sales',
+        });
+
+        // Handle the response status
+        if (response.message.status === 'completed') {
+          this.snackColor = 'success';
+          this.snackText = 'Sales Invoice sync completed successfully!';
+        } else if (response.message.status === 'volume_too_high') {
+          this.snackColor = 'warning';
+          this.snackText = 'Volume exceeds maximum for quick update. Please update stock from the Branch Control Center.';
+        } else {
+          this.snackColor = 'error';
+          this.snackText = 'Error updating sales invoices!';
+        }
+      } catch (error) {
+        console.error('Error during sales invoice update:', error);
+        this.snackColor = 'error';
+        this.snackText = 'Error during sales invoice update.';
       }
     },
     showSnackbar(text, color) {

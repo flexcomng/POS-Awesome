@@ -36,6 +36,7 @@ from posawesome.posawesome.doctype.delivery_charges.delivery_charges import (
 )
 from frappe.utils.caching import redis_cache
 from branchsync.api.utils import get_hq_config, get_hq_headers
+from branchsync.sync_portal.sales_sync import sync_local_invoices_to_remote
 
 @frappe.whitelist()
 def get_opening_dialog_data():
@@ -2257,3 +2258,9 @@ def create_and_submit_stock_entry(se_data, suffix="", use_custom_autoname=False,
             title="create_and_submit_stock_entry Error"
         )
         return None
+
+@frappe.whitelist()
+def sync_sales():
+    # Call the invoice sync function and return its response
+    invoice_response = sync_local_invoices_to_remote()
+    return invoice_response
