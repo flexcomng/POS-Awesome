@@ -1965,97 +1965,97 @@ def get_user_full_name(user):
     return user_doc.full_name
 
 
-@frappe.whitelist()
-def sync_item_price():
-    prices_response = fetch_item_price()
+# @frappe.whitelist()
+# def sync_item_price():
+#     prices_response = fetch_item_price()
 
-    # Check if prices_response is valid
-    if prices_response is None:
-        frappe.log_error(message="Error fetching price data.", title="sync_item_price Error")
-        return {"status": "error", "message": "Error fetching price data."}
+#     # Check if prices_response is valid
+#     if prices_response is None:
+#         frappe.log_error(message="Error fetching price data.", title="sync_item_price Error")
+#         return {"status": "error", "message": "Error fetching price data."}
 
-    # Check if the response contains valid data
-    if 'data' in prices_response and isinstance(prices_response['data'], list):
-        num_prices = len(prices_response['data'])
+#     # Check if the response contains valid data
+#     if 'data' in prices_response and isinstance(prices_response['data'], list):
+#         num_prices = len(prices_response['data'])
 
-        # If the number of price records exceeds 1000, abort the update
-        if num_prices > 1000:
-            return {
-                "status": "volume_too_high",
-                "message": "Update volume exceeds the limit for quick update."
-            }
+#         # If the number of price records exceeds 1000, abort the update
+#         if num_prices > 1000:
+#             return {
+#                 "status": "volume_too_high",
+#                 "message": "Update volume exceeds the limit for quick update."
+#             }
 
-        # Proceed with normal update if the number of prices is less than or equal to 1000
-        for index, price in enumerate(prices_response['data']):
-            item_code = price.get('item_code')
-            price_list = price.get('price_list')
-            new_rate = price.get('price_list_rate')
-            valid_from = price.get('valid_from')
+#         # Proceed with normal update if the number of prices is less than or equal to 1000
+#         for index, price in enumerate(prices_response['data']):
+#             item_code = price.get('item_code')
+#             price_list = price.get('price_list')
+#             new_rate = price.get('price_list_rate')
+#             valid_from = price.get('valid_from')
 
-            existing_prices = frappe.db.get_list('Item Price', filters={
-                'item_code': item_code,
-                'price_list': price_list,
-                'valid_from': valid_from
-            }, fields=['name', 'price_list_rate'])
+#             existing_prices = frappe.db.get_list('Item Price', filters={
+#                 'item_code': item_code,
+#                 'price_list': price_list,
+#                 'valid_from': valid_from
+#             }, fields=['name', 'price_list_rate'])
 
-            if existing_prices:
-                existing_price = existing_prices[0]
-                if existing_price['price_list_rate'] != new_rate:
-                    price_doc = frappe.get_doc("Item Price", existing_price['name'])
-                    price_doc.price_list_rate = new_rate
-                    price_doc.save()
-                    frappe.db.commit()
-            else:
-                if frappe.db.exists('Item', {'name': item_code}):
-                    new_price_list = frappe.new_doc("Item Price")
-                    new_price_list.item_code = item_code
-                    new_price_list.price_list = price_list
-                    new_price_list.price_list_rate = new_rate
-                    new_price_list.valid_from = valid_from
-                    new_price_list.insert(ignore_permissions=True)
-                    frappe.db.commit()
+#             if existing_prices:
+#                 existing_price = existing_prices[0]
+#                 if existing_price['price_list_rate'] != new_rate:
+#                     price_doc = frappe.get_doc("Item Price", existing_price['name'])
+#                     price_doc.price_list_rate = new_rate
+#                     price_doc.save()
+#                     frappe.db.commit()
+#             else:
+#                 if frappe.db.exists('Item', {'name': item_code}):
+#                     new_price_list = frappe.new_doc("Item Price")
+#                     new_price_list.item_code = item_code
+#                     new_price_list.price_list = price_list
+#                     new_price_list.price_list_rate = new_rate
+#                     new_price_list.valid_from = valid_from
+#                     new_price_list.insert(ignore_permissions=True)
+#                     frappe.db.commit()
 
-            time.sleep(1)  # Adding sleep to prevent rapid execution
+#             time.sleep(1)  # Adding sleep to prevent rapid execution
 
-        return {"status": "completed"}
+#         return {"status": "completed"}
 
-    frappe.log_error(message="No valid data received.", title="sync_item_price Error")
-    return {"status": "error", "message": "No valid data received."}
+#     frappe.log_error(message="No valid data received.", title="sync_item_price Error")
+#     return {"status": "error", "message": "No valid data received."}
 
 
-def fetch_item_price():
-    # Get the last_sync_time from Branch Control Center (Singles Doctype)
-    last_sync_time = frappe.db.get_single_value("Branch Control Center", "last_sync_time")
+# def fetch_item_price():
+#     # Get the last_sync_time from Branch Control Center (Singles Doctype)
+#     last_sync_time = frappe.db.get_single_value("Branch Control Center", "last_sync_time")
     
-    if not last_sync_time:
-        frappe.log_error(message="No last_sync_time found.", title="fetch_item_price Error")
-        return None
+#     if not last_sync_time:
+#         frappe.log_error(message="No last_sync_time found.", title="fetch_item_price Error")
+#         return None
 
-    formatted_last_sync_time = format_datetime(last_sync_time, "yyyy-MM-dd HH:mm:ss")
+#     formatted_last_sync_time = format_datetime(last_sync_time, "yyyy-MM-dd HH:mm:ss")
 
-    base_url, api_key, api_secret = get_hq_config()
-    headers = get_hq_headers(api_key, api_secret)
+#     base_url, api_key, api_secret = get_hq_config()
+#     headers = get_hq_headers(api_key, api_secret)
 
-    data = {
-        "doctype": "Item Price",
-        "fields": ["*"],
-        "filters": [
-            ["Item Price", "modified", ">=", formatted_last_sync_time]
-        ]
-    }
+#     data = {
+#         "doctype": "Item Price",
+#         "fields": ["*"],
+#         "filters": [
+#             ["Item Price", "modified", ">=", formatted_last_sync_time]
+#         ]
+#     }
 
-    endpoint = f"{base_url}/api/method/branchsync.api.api.get_all"
+#     endpoint = f"{base_url}/api/method/branchsync.api.api.get_all"
 
-    try:
-        response = requests.post(endpoint, headers=headers, json=data)
-        response.raise_for_status()
+#     try:
+#         response = requests.post(endpoint, headers=headers, json=data)
+#         response.raise_for_status()
 
-        price_data = response.json().get('message', [])
-        return {"data": price_data}
+#         price_data = response.json().get('message', [])
+#         return {"data": price_data}
 
-    except requests.RequestException as e:
-        frappe.log_error(message=f"Error fetching item prices: {str(e)}", title="fetch_item_price Error")
-        return None
+#     except requests.RequestException as e:
+#         frappe.log_error(message=f"Error fetching item prices: {str(e)}", title="fetch_item_price Error")
+#         return None
 
 
 def modify_first_stock_entry_data(se_data):
@@ -2264,3 +2264,109 @@ def sync_sales():
     # Call the invoice sync function and return its response
     invoice_response = sync_local_invoices_to_remote()
     return invoice_response
+
+
+def modify_naming_data(data):
+
+    data['status'] = "Pending"
+    data['use_custom_autoname'] = 1
+
+    return data
+
+
+def fetch_price_update():
+    base_url, api_key, api_secret = get_hq_config()
+    headers = get_hq_headers(api_key, api_secret)
+
+    data = {
+        "doctype": "Price Manager",
+        "fields": ["name", "date", "docstatus"],
+    }
+
+    endpoint = f"{base_url}/api/method/branchsync.api.api.get_all"
+
+    try:
+        response = requests.post(endpoint, headers=headers, json=data)
+        response.raise_for_status()
+
+        price_data = response.json().get('message', [])
+
+        return price_data
+    except requests.RequestException as e:
+        frappe.log_error(f"Error fetching price update: {str(e)}", 'Fetch Price Update Error')
+        return None
+
+
+@frappe.whitelist()
+def sync_item_price():
+    base_url, api_key, api_secret = get_hq_config()
+    headers = get_hq_headers(api_key, api_secret)
+    price_manager_data = fetch_price_update()
+
+    if not price_manager_data:
+        frappe.log_error("No price manager data returned from HQ", 'Update Item Prices Error')
+        return "No price manager data available"
+
+    for price_data in price_manager_data:
+        original_name = price_data.get('name')
+
+        if not frappe.db.exists("Price Manager", original_name):
+            doc_endpoint = f"{base_url}/api/method/branchsync.api.api.get_doc"
+            doc_data = {
+                "doctype": "Price Manager",
+                "name": original_name 
+            }
+            try:
+                response = requests.post(doc_endpoint, headers=headers, json=doc_data)
+                response.raise_for_status()
+            except requests.RequestException as e:
+                frappe.log_error(f"Error fetching Price Manager {original_name} from HQ: {str(e)}", 'Update Item Prices Error')
+                continue
+
+            if response.status_code == 200:
+                price_data = response.json().get('message', {})
+                if price_data:
+                    try:
+                        data = modify_naming_data(price_data)
+                        data.pop('doctype', None)
+                        data.pop('docstatus', None)
+                        price_data = data.pop('items', [])
+
+                        price_list = frappe.get_doc({
+                            'doctype': 'Price Manager',
+                            **data
+                        })
+                        for item in price_data:
+                            price_list.append('items', item)
+
+                        price_list.insert(ignore_permissions=True, ignore_mandatory=True)
+                        price_list.save()
+
+                        if price_list.name != data['name']:
+                            frappe.db.sql("""UPDATE `tabPrice Manager` SET name=%s WHERE name=%s""", (data['name'], price_list.name))
+                            frappe.db.commit()
+
+                        child_table_name = 'tabPrice Details'
+                        new_parent_name = data['name']
+                        old_parent_name = price_list.name 
+
+                        frappe.db.sql(f"""
+                            UPDATE `{child_table_name}`
+                            SET parent = %s
+                            WHERE parent = %s
+                        """, (new_parent_name, old_parent_name))
+                        frappe.db.commit()
+
+                        try:
+                            new_list = frappe.get_doc('Price Manager', data['name'])
+                            new_list.submit()
+                            frappe.db.commit()
+                            return f"Price Manager {new_list.name} created and submitted successfully."
+                        except Exception as submit_error:
+                            frappe.log_error(f"Failed to submit Price Manager {new_list.name}: {str(submit_error)}", 'Price Manager Submission Error')
+                            return f"Failed to submit Price Manager: {str(submit_error)}"
+                    except Exception as process_error:
+                        frappe.log_error(f"Error processing Price Manager {original_name}: {str(process_error)}", 'Update Item Prices Processing Error')
+                else:
+                    frappe.log_error(f"No valid price data received for Price Manager {original_name}", 'Update Item Prices Error')
+                    continue
