@@ -2298,7 +2298,7 @@ def fetch_price_update():
 
 
 @frappe.whitelist()
-def update_item_prices():
+def sync_item_price():
     base_url, api_key, api_secret = get_hq_config()
     headers = get_hq_headers(api_key, api_secret)
     price_manager_data = fetch_price_update()
