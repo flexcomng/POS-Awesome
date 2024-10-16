@@ -2311,7 +2311,6 @@ def sync_item_price():
     failed_records = []  # Track failed records
 
     for price_data in price_manager_data:
-        print('Processing: ', price_data)
         original_name = price_data.get('name')
 
         # Check if the Price Manager document exists
