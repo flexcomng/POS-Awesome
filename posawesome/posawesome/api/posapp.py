@@ -2307,7 +2307,11 @@ def sync_item_price():
         frappe.log_error("No price manager data returned from HQ", 'Update Item Prices Error')
         return "No price manager data available"
 
+    successfully_processed = []  # Track successful records
+    failed_records = []  # Track failed records
+
     for price_data in price_manager_data:
+        print('Processing: ', price_data)
         original_name = price_data.get('name')
 
         # Check if the Price Manager document exists
@@ -2328,6 +2332,7 @@ def sync_item_price():
             response.raise_for_status()
         except requests.RequestException as e:
             frappe.log_error(f"Error fetching Price Manager {original_name} from HQ: {str(e)}", 'Update Item Prices Error')
+            failed_records.append(original_name)
             continue
 
         if response.status_code == 200:
@@ -2373,14 +2378,26 @@ def sync_item_price():
                         new_list = frappe.get_doc('Price Manager', data['name'])
                         new_list.submit()
                         frappe.db.commit()
-                        return f"Price Manager {new_list.name} created and submitted successfully."
+                        successfully_processed.append(new_list.name)
                     except Exception as submit_error:
                         frappe.log_error(f"Failed to submit Price Manager {new_list.name}: {str(submit_error)}", 'Price Manager Submission Error')
-                        return f"Failed to submit Price Manager: {str(submit_error)}"
-
+                        failed_records.append(original_name)
                 except Exception as process_error:
                     frappe.log_error(f"Error processing Price Manager {original_name}: {str(process_error)}", 'Update Item Prices Processing Error')
+                    failed_records.append(original_name)
             else:
                 frappe.log_error(f"No valid price data received for Price Manager {original_name}", 'Update Item Prices Error')
+                failed_records.append(original_name)
                 continue
 
+    if successfully_processed:
+        success_message = f"Successfully processed {len(successfully_processed)} Price Manager records: {', '.join(successfully_processed)}."
+    else:
+        success_message = "No records processed successfully."
+
+    if failed_records:
+        error_message = f"Failed to process {len(failed_records)} Price Manager records: {', '.join(failed_records)}."
+    else:
+        error_message = "No records failed."
+
+    return f"{success_message} {error_message}"

@@ -308,9 +308,6 @@ export default {
         } else if (response.message.status === 'volume_too_high') {
           this.snackColor = 'warning';
           this.snackText = 'Volume exceeds maximum for quick update. Please update price list from the Branch Control Center.';
-        } else {
-          this.snackColor = 'error';
-          this.snackText = 'Error updating price list!';
         }
       } catch (error) {
         console.error('Error during price update:', error);
