@@ -313,6 +313,7 @@
       
         // Collect necessary data to create Sales Invoice
         const customer = this.pos_profile.customer;
+        const posProfile = this.pos_profile.name
         const branch = this.pos_profile.branch;
         const cost_center = this.pos_profile.cost_center;
         const qty = 1;
@@ -323,6 +324,7 @@
         // Create Sales Invoice data
         const salesInvoiceData = {
             doctype: "Sales Invoice",
+            pos_profile: posProfile,
             customer: customer,
             branch: branch,
             is_pos: 1,
@@ -344,7 +346,7 @@
             },
             ],
         };
-
+        console.log('Sales invoice data', salesInvoiceData)
         try {
             // Create and submit the Sales Invoice
             const response = await frappe.call({
@@ -353,7 +355,7 @@
                     doc: salesInvoiceData,
                 },
             });
-
+            console.log('Sales Invoice Processed', response)
             if (response.message) {
                 const submittedInvoice = await frappe.call({
                     method: "frappe.client.submit",
