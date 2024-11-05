@@ -2121,6 +2121,19 @@ def adjust_stock_entry_timing(se_data):
 
     return se_data
 
+@frappe.whitelist()
+def sync_stock_data():
+    settings = frappe.get_doc('Branch Control Center', None)
+    if settings.sync_timeout == 0:
+        settings.sync_timeout = 1500
+        settings.save()
+    timeout = settings.sync_timeout or 1500
+    if timeout < 1500:
+        timeout = 1500
+    
+    frappe.enqueue("posawesome.posawesome.api.posapp.sync_stock", queue='long', timeout=timeout)
+
+    return "Successfully processed"
 
 @frappe.whitelist()
 def sync_stock(batch_size=100, page_number=1):
@@ -2147,8 +2160,7 @@ def sync_stock(batch_size=100, page_number=1):
         if get_all_response.status_code == 200:
             stock_entry_names = get_all_response.json().get('message', [])
             
-            # Check the number of records and return a "volume_too_high" if needed
-            if len(stock_entry_names) > 1000:  # Threshold can be adjusted as needed
+            if len(stock_entry_names) > 1000: 
                 return {
                     "status": "volume_too_high",
                     "message": "Volume exceeds the maximum limit for a quick update."
@@ -2297,6 +2309,23 @@ def fetch_price_update():
         return None
 
 
+
+
+@frappe.whitelist()
+def sync_price_data():
+    settings = frappe.get_doc('Branch Control Center', None)
+    if settings.sync_timeout == 0:
+        settings.sync_timeout = 1500
+        settings.save()
+    timeout = settings.sync_timeout or 1500
+    if timeout < 1500:
+        timeout = 1500
+    
+    frappe.enqueue("posawesome.posawesome.api.posapp.sync_item_price", queue='long', timeout=timeout)
+
+    return "Successfully processed"
+
+
 @frappe.whitelist()
 def sync_item_price():
     base_url, api_key, api_secret = get_hq_config()
@@ -2391,11 +2420,14 @@ def sync_item_price():
 
     if successfully_processed:
         success_message = f"Successfully processed {len(successfully_processed)} Price Manager records: {', '.join(successfully_processed)}."
+        frappe.msgprint(f"{success_message}")
     else:
         success_message = "No records processed successfully."
+        frappe.msgprint(f"{success_message}")
 
     if failed_records:
         error_message = f"Failed to process {len(failed_records)} Price Manager records: {', '.join(failed_records)}."
+        frappe.msgprint(f"{success_message}")
     else:
         error_message = "No records failed."
 

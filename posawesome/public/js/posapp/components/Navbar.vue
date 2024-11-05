@@ -299,9 +299,9 @@ export default {
       try {
         // Call the backend function to update prices
         const response = await frappe.call({
-          method: 'posawesome.posawesome.api.posapp.sync_item_price',
+          method: 'posawesome.posawesome.api.posapp.sync_price_data',
         });
-
+        console.log('response', response)
         if (response.message.status === 'completed') {
           this.snackColor = 'success';
           this.snackText = 'Price update completed successfully!';
@@ -324,7 +324,7 @@ export default {
       try {
         // Call the backend function to update stock
         const response = await frappe.call({
-          method: 'posawesome.posawesome.api.posapp.sync_stock',
+          method: 'posawesome.posawesome.api.posapp.sync_stock_data',
         });
 
         // Handle the response status
