@@ -2068,6 +2068,7 @@ def modify_first_stock_entry_data(se_data):
     se_data['outgoing_stock_entry'] = None
     se_data['use_custom_autoname'] = 1
     se_data['add_to_transit'] = None
+    se_data['amended_from'] = None
 
     se_data['stock_entry_type'] = "Material Receipt"
     se_data['set_posting_time'] = 1
@@ -2108,6 +2109,7 @@ def adjust_stock_entry_timing(se_data):
 
     se_data['outgoing_stock_entry'] = None
     se_data['add_to_transit'] = None
+    se_data['amended_from'] = None
 
     for item in se_data.get('items', []):
         item['s_warehouse'] = original_t_warehouse
@@ -2143,13 +2145,14 @@ def sync_stock(batch_size=100, page_number=1):
         headers = get_hq_headers(api_key, api_secret)
         
         company = frappe.get_cached_value('Global Defaults', None, 'default_company')
+        branch = frappe.db.get_value('Company', company, 'branch')
         warehouse = frappe.get_cached_value('Branch Control Center', None, 'default_warehouse')
 
         get_all_endpoint = f"{base_url}/api/method/branchsync.api.api.get_all"
         get_all_data = {
             "doctype": "Stock Entry",
             "fields": ["*"],
-            "filters": {'docstatus': 1},
+            "filters": [['docstatus', '=', 1],['branch', '=', branch]],
             "limit_page_length": batch_size,
             "limit_start": (page_number - 1) * batch_size
         }

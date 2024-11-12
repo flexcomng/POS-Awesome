@@ -324,7 +324,7 @@ export default {
       try {
         // Call the backend function to update stock
         const response = await frappe.call({
-          method: 'posawesome.posawesome.api.posapp.sync_stock_data',
+          method: 'posawesome.posawesome.api.posapp.sync_stock',
         });
 
         // Handle the response status
