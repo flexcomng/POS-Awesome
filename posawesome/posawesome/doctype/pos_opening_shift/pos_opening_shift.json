@@ -42,10 +42,8 @@
    "default": "Draft",
    "fieldname": "status",
    "fieldtype": "Select",
-   "hidden": 1,
    "label": "Status",
-   "options": "Draft\nOpen\nClosed\nCancelled",
-   "read_only": 1
+   "options": "Draft\nOpen\nClosed\nCancelled"
   },
   {
    "fieldname": "column_break_3",
@@ -130,10 +128,11 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2022-11-22 15:04:30.555123",
+ "modified": "2024-10-16 16:00:53.127426",
  "modified_by": "Administrator",
  "module": "POSAwesome",
  "name": "POS Opening Shift",
+ "naming_rule": "Expression (old style)",
  "owner": "Administrator",
  "permissions": [
   {
@@ -180,5 +179,6 @@
  ],
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }

@@ -28,7 +28,7 @@
             color="primary"
             background-color="white"
             :items="invoiceTypes"
-            :label="frappe._('Type')"
+            :label="frappe._('Type')"x
             v-model="invoiceType"
             :disabled="invoiceType == 'Return'"
           ></v-select>

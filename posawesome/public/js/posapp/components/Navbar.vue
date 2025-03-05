@@ -127,7 +127,7 @@
           </v-list-item>
 
           <!-- Iterate through positems (Update Price List) -->
-          <v-list-item
+          <!-- <v-list-item
             v-for="positem in positems"
             :key="positem.text"
             @click="startPriceUpdate"
@@ -162,7 +162,7 @@
             <v-list-item-content>
               <v-list-item-title v-text="positem.text"></v-list-item-title>
             </v-list-item-content>
-          </v-list-item>
+          </v-list-item> -->
         </v-list-item-group>
       </v-list>
     </v-navigation-drawer>

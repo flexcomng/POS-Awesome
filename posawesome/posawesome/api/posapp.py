@@ -1895,32 +1895,57 @@ def get_sales_invoice_child_table(sales_invoice, sales_invoice_item):
     )
     return child_doc
 
+# @frappe.whitelist()
+# def validate_discount_code(discount_code, branch, item):
+#     if frappe.db.exists('Discount Request', discount_code):
+#         return {"status": "error", "message": "This Discount Code has already been used."}
+#     else:
+#         base_url, api_key, api_secret = get_hq_config()
+#         headers = get_hq_headers(api_key, api_secret)
+#         discount_data = f"{base_url}/api/method/branchsync.api.api.get_doc"
+#         response = requests.get(discount_data, headers=headers, params={"doctype": "Discount Request", "name": discount_code})
+#         if response.status_code == 200:
+#             discount_info = response.json().get('message', {})
+
+#             if not discount_code == discount_info["discount_code"]:
+#                 return {"status": "error", "message": "This code is not valid"}
+            
+#             elif not branch == discount_info["branch"]:
+#                 return {"status": "error", "message": "This code is not valid for this branch"}
+            
+#             elif not item == discount_info["item_code"]:
+#                 return{"status": "error", "message": "This code is not valid for this item."}
+#             else:
+#                 create_discount_record(discount_info)
+#                 return {"status": "success", "discount": discount_info}
+#         else:
+#             return {"status": "error", "message": "Failed to fetch discount information."}
+
 @frappe.whitelist()
 def validate_discount_code(discount_code, branch, item):
-    if frappe.db.exists('Discount Request', discount_code):
+    # Fetch the Discount Request document locally
+    discount_doc = frappe.get_doc("Discount Request", discount_code)
+    
+    # Check if the discount has already been applied
+    if discount_doc.status == "Discount Applied":
         return {"status": "error", "message": "This Discount Code has already been used."}
-    else:
-        base_url, api_key, api_secret = get_hq_config()
-        headers = get_hq_headers(api_key, api_secret)
-        discount_data = f"{base_url}/api/method/branchsync.api.api.get_doc"
-        response = requests.get(discount_data, headers=headers, params={"doctype": "Discount Request", "name": discount_code})
-        if response.status_code == 200:
-            discount_info = response.json().get('message', {})
-
-            if not discount_code == discount_info["discount_code"]:
-                return {"status": "error", "message": "This code is not valid"}
-            
-            elif not branch == discount_info["branch"]:
-                return {"status": "error", "message": "This code is not valid for this branch"}
-            
-            elif not item == discount_info["item_code"]:
-                return{"status": "error", "message": "This code is not valid for this item."}
-            else:
-                create_discount_record(discount_info)
-                return {"status": "success", "discount": discount_info}
-        else:
-            return {"status": "error", "message": "Failed to fetch discount information."}
-
+    
+    # Proceed only if the discount is approved for use
+    if discount_doc.status != "Discount Approved":
+        return {"status": "error", "message": "Discount status is not approved for use."}
+    
+    # Validate the discount code fields
+    if discount_code != discount_doc.discount_code:
+        return {"status": "error", "message": "This code is not valid"}
+    if branch != discount_doc.branch:
+        return {"status": "error", "message": "This code is not valid for this branch"}
+    if item != discount_doc.item_code:
+        return {"status": "error", "message": "This code is not valid for this item."}
+    
+    # If all validations pass, update the discount document to mark it as applied
+    frappe.db.set_value("Discount Request", discount_code, "status", "Discount Applied")
+    
+    return {"status": "success", "discount": discount_doc}
 
 @frappe.whitelist()
 def create_discount_record(discount_info):
