@@ -600,6 +600,7 @@ def update_invoice(data):
         invoice_doc.set_posting_time = 1
 
     invoice_doc.save()
+    update_discount_requests(invoice_doc.name)
     return invoice_doc
 
 
@@ -1988,6 +1989,50 @@ def delete_discount_request(discount_code):
 def get_user_full_name(user):
     user_doc = frappe.get_doc("User", user)
     return user_doc.full_name
+
+
+@frappe.whitelist()
+def update_discount_requests(invoice_name):
+    """
+    For the given Sales Invoice, find all unique discount codes in its items.
+    For each discount code, fetch the corresponding Discount Request document
+    (by filtering on discount_code) and update its fields:
+      - used_by: Full name of the current session user.
+      - used_datetime: Current datetime.
+      - reference_document: The Sales Invoice name.
+    """
+    try:
+        invoice = frappe.get_doc("Sales Invoice", invoice_name)
+    except Exception:
+        frappe.throw(_("Invoice not found: {0}").format(invoice_name))
+    used_by = get_user_full_name(frappe.session.user)
+    # Build a set of discount codes from invoice items
+    discount_codes = set()
+    for item in invoice.get("items"):
+        if item.get("discount_code"):
+            discount_codes.add(item.get("discount_code"))
+    
+    # For each discount code, update the Discount Request document if found
+    for discount_code in discount_codes:
+        discount_requests = frappe.get_all(
+            "Discount Request",
+            filters={"discount_code": discount_code},
+            fields=["name"]
+        )
+        if discount_requests:
+            discount_request_name = discount_requests[0]["name"]
+            frappe.db.set_value(
+                "Discount Request",
+                discount_request_name,
+                {
+                    "used_by": used_by,
+                    "used_datetime": frappe.utils.now_datetime(),
+                    "reference_document": invoice_name,
+                }
+            )
+  
+    return {"status": "success"}
+
 
 
 # @frappe.whitelist()
