@@ -14,46 +14,49 @@
       background-color="white"
       :no-data-text="__('Customer not found')"
       hide-details
-      :filter="customFilter"
+      :filter="() => true"
       :disabled="readonly"
+      :loading="loading"
+      :search-input.sync="search"
       append-icon="mdi-plus"
       @click:append="new_customer"
       prepend-inner-icon="mdi-account-edit"
       @click:prepend-inner="edit_customer"
     >
-      <template v-slot:item="data">
-        <template>
+      <!-- legacy Vue 2 slot syntax -->
+      <template slot="item" slot-scope="data">
+        <v-list-item v-bind="data.attrs" v-on="data.on">
           <v-list-item-content>
             <v-list-item-title
               class="primary--text subtitle-1"
               v-html="data.item.customer_name"
-            ></v-list-item-title>
+            />
             <v-list-item-subtitle
-              v-if="data.item.customer_name != data.item.name"
+              v-if="data.item.customer_name !== data.item.name"
               v-html="`ID: ${data.item.name}`"
-            ></v-list-item-subtitle>
+            />
             <v-list-item-subtitle
               v-if="data.item.tax_id"
               v-html="`TAX ID: ${data.item.tax_id}`"
-            ></v-list-item-subtitle>
+            />
             <v-list-item-subtitle
               v-if="data.item.email_id"
               v-html="`Email: ${data.item.email_id}`"
-            ></v-list-item-subtitle>
+            />
             <v-list-item-subtitle
               v-if="data.item.mobile_no"
               v-html="`Mobile No: ${data.item.mobile_no}`"
-            ></v-list-item-subtitle>
+            />
             <v-list-item-subtitle
               v-if="data.item.primary_address"
               v-html="`Primary Address: ${data.item.primary_address}`"
-            ></v-list-item-subtitle>
+            />
           </v-list-item-content>
-        </template>
+        </v-list-item>
       </template>
     </v-autocomplete>
     <div class="mb-8">
-      <UpdateCustomer></UpdateCustomer>
+      <UpdateCustomer />
     </div>
   </div>
 </template>
@@ -68,107 +71,109 @@
 <script>
 import { evntBus } from '../../bus';
 import UpdateCustomer from './UpdateCustomer.vue';
+
 export default {
+  components: { UpdateCustomer },
+
   data: () => ({
     pos_profile: '',
     customers: [],
-    customer: '',
+    customer: '',           // holds selected customer (name)
     readonly: false,
     customer_info: {},
+    search: '',             // v-autocomplete search text
+    loading: false,
+    _debounceTimer: null,
+    _lastQuery: '',         // to avoid duplicate calls for same query
   }),
 
-  components: {
-    UpdateCustomer,
-  },
-
   methods: {
-    get_customer_names() {
-      const vm = this;
-      if (this.customers.length > 0) {
+    // === removed localStorage usage entirely ===
+
+    async fetchCustomers(query) {
+      // guard rails
+      if (!this.pos_profile || !this.pos_profile.pos_profile) return;
+      if (!query || query.trim().length < 2) { // type ≥2 chars to search
+        this.customers = [];
         return;
       }
-      if (vm.pos_profile.posa_local_storage && localStorage.customer_storage) {
-        vm.customers = JSON.parse(localStorage.getItem('customer_storage'));
-      }
+      if (query === this._lastQuery) return;
+
+      this.loading = true;
+      this._lastQuery = query;
+
       frappe.call({
-        method: 'posawesome.posawesome.api.posapp.get_customer_names',
+        method: 'posawesome.posawesome.api.posapp.search_customers',
         args: {
-          pos_profile: this.pos_profile.pos_profile,
+          query,
+          pos_profile: JSON.stringify(this.pos_profile),
         },
-        callback: function (r) {
-          if (r.message) {
-            vm.customers = r.message;
-            console.info('loadCustomers');
-            if (vm.pos_profile.posa_local_storage) {
-              localStorage.setItem('customer_storage', '');
-              localStorage.setItem(
-                'customer_storage',
-                JSON.stringify(r.message)
-              );
-            }
-          }
+        callback: (r) => {
+          this.loading = false;
+          this.customers = Array.isArray(r.message) ? r.message : [];
+        },
+        error: () => {
+          this.loading = false;
+          this.customers = [];
         },
       });
     },
+
     new_customer() {
       evntBus.$emit('open_update_customer', null);
     },
+
     edit_customer() {
       evntBus.$emit('open_update_customer', this.customer_info);
     },
-    customFilter(item, queryText, itemText) {
-      const textOne = item.customer_name
-        ? item.customer_name.toLowerCase()
-        : '';
-      const textTwo = item.tax_id ? item.tax_id.toLowerCase() : '';
-      const textThree = item.email_id ? item.email_id.toLowerCase() : '';
-      const textFour = item.mobile_no ? item.mobile_no.toLowerCase() : '';
-      const textFifth = item.name.toLowerCase();
-      const searchText = queryText.toLowerCase();
-
-      return (
-        textOne.indexOf(searchText) > -1 ||
-        textTwo.indexOf(searchText) > -1 ||
-        textThree.indexOf(searchText) > -1 ||
-        textFour.indexOf(searchText) > -1 ||
-        textFifth.indexOf(searchText) > -1
-      );
-    },
   },
 
-  computed: {},
-
-  created: function () {
-    this.$nextTick(function () {
+  created() {
+    this.$nextTick(() => {
       evntBus.$on('register_pos_profile', (pos_profile) => {
         this.pos_profile = pos_profile;
-        this.get_customer_names();
       });
       evntBus.$on('payments_register_pos_profile', (pos_profile) => {
         this.pos_profile = pos_profile;
-        this.get_customer_names();
       });
       evntBus.$on('set_customer', (customer) => {
         this.customer = customer;
       });
       evntBus.$on('add_customer_to_list', (customer) => {
-        this.customers.push(customer);
+        // optional: push freshly created customer so it appears immediately
+        // when user just added it via dialog
+        if (customer && customer.name) {
+          const exists = this.customers.some(c => c.name === customer.name);
+          if (!exists) this.customers.unshift(customer);
+        }
       });
       evntBus.$on('set_customer_readonly', (value) => {
         this.readonly = value;
       });
       evntBus.$on('set_customer_info_to_edit', (data) => {
-        this.customer_info = data;
+        this.customer_info = data || {};
       });
       evntBus.$on('fetch_customer_details', () => {
-        this.get_customer_names();
+        // no longer preloads; if needed, trigger a search with current text
+        this.fetchCustomers(this.search);
       });
     });
   },
 
   watch: {
-    customer() {
-      evntBus.$emit('update_customer', this.customer);
+    // debounce server search as the user types
+    search(val) {
+      clearTimeout(this._debounceTimer);
+      this._debounceTimer = setTimeout(() => {
+        this.fetchCustomers(val);
+      }, 250); // tweak delay as desired
+    },
+
+    // when selection changes, emit + keep a copy of the selected row for editing
+    customer(newVal) {
+      const found = this.customers.find(c => c.name === newVal);
+      this.customer_info = found || {};
+      evntBus.$emit('update_customer', newVal);
     },
   },
 };
